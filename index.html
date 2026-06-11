@@ -931,6 +931,20 @@ function loadYouTube() {
   const videoId = extractYouTubeId(val);
   if (!videoId) return toast("Invalid YouTube URL");
   socket.emit("meta", { source: "youtube", videoId });
+  // Create player locally for host (meta event is broadcast to others only)
+  playerType = "youtube";
+  $("uploadArea").classList.add("hidden");
+  $("playerArea").classList.remove("hidden");
+  $("waitOverlay").classList.add("hidden");
+  liveBadge.classList.remove("hidden");
+  if (ytApiReady) {
+    createYTPlayer(videoId);
+  } else {
+    loadYouTubeAPI();
+    const check = setInterval(() => {
+      if (ytApiReady) { clearInterval(check); createYTPlayer(videoId); }
+    }, 200);
+  }
   $("changeBtn").classList.remove("hidden");
 }
 
@@ -957,6 +971,20 @@ function loadVk() {
   const info = extractVkId(val);
   if (!info) return toast("Invalid VK video URL");
   socket.emit("meta", { source: "vk", oid: info.oid, id: info.id });
+  // Create player locally for host (meta event is broadcast to others only)
+  playerType = "vk";
+  $("uploadArea").classList.add("hidden");
+  $("playerArea").classList.remove("hidden");
+  $("waitOverlay").classList.add("hidden");
+  liveBadge.classList.remove("hidden");
+  if (vkApiLoaded && window.VK && window.VK.VideoPlayer) {
+    createVKPlayer(info.oid, info.id);
+  } else {
+    loadVkAPI();
+    const check = setInterval(() => {
+      if (vkApiLoaded) { clearInterval(check); createVKPlayer(info.oid, info.id); }
+    }, 200);
+  }
   $("changeBtn").classList.remove("hidden");
 }
 
@@ -980,6 +1008,13 @@ function loadDm() {
   const videoId = extractDmId(val);
   if (!videoId) return toast("Invalid Dailymotion URL");
   socket.emit("meta", { source: "dailymotion", videoId });
+  // Create player locally for host (meta event is broadcast to others only)
+  playerType = "dailymotion";
+  $("uploadArea").classList.add("hidden");
+  $("playerArea").classList.remove("hidden");
+  $("waitOverlay").classList.add("hidden");
+  liveBadge.classList.remove("hidden");
+  createDMPlayer(videoId);
   $("changeBtn").classList.remove("hidden");
 }
 
