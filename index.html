@@ -962,7 +962,8 @@ function loadDrive() {
 function extractVkId(val) {
   const patterns = [
     /vk\.com\/video(-?\d+)_(\d+)/,
-    /(?:m\.)?vkvideo\.ru\/video(-?\d+)_(\d+)/,
+    /m\.vkvideo\.ru\/video(-?\d+)_(\d+)/,
+    /vkvideo\.ru\/video(-?\d+)_(\d+)/,
   ];
   for (const p of patterns) {
     const m = val.trim().match(p);
