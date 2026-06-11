@@ -191,8 +191,13 @@ io.on("connection", (socket) => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
       room.meta = m;
-      room.total = m.t;
-      room.chunks = new Array(m.t);
+      if (m.source === "youtube" || m.source === "drive") {
+        room.total = 0;
+        room.chunks = [];
+      } else {
+        room.total = m.t || 0;
+        room.chunks = new Array(room.total);
+      }
       socket.to(socket.data.room).emit("meta", m);
       scheduleSave();
     }
@@ -260,7 +265,7 @@ io.on("connection", (socket) => {
       socket.data.room = code;
       socket.join(code);
       room.users[socket.id] = { n: "Host" };
-      cb({ ok: true, state: room.state, hasMeta: !!room.meta, total: room.total });
+      cb({ ok: true, state: room.state, meta: room.meta, total: room.total });
       io.to(code).emit("count", Object.keys(room.users).length);
       scheduleSave();
     } else {

@@ -45,6 +45,8 @@ input,button{font-family:inherit;font-size:14px}
 .btn:hover{background:var(--primary-hover)}
 .btn-danger{background:var(--red)}
 .btn-danger:hover{background:#d03b3e}
+.source-btn{background:var(--surface2)!important;color:var(--text2)!important;border:1px solid var(--border)!important}
+.source-btn.active{background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important}
 
 /* Toast */
 #toast{
@@ -337,18 +339,46 @@ input,button{font-family:inherit;font-size:14px}
   </div>
   <div class="room-content">
     <div class="video-section" id="videoSection">
-      <!-- Upload Area (host only) -->
-      <div id="uploadArea" class="hidden upload-area" onclick="document.getElementById('fileInput').click()">
-        <div class="box">
-          <div class="icon">&#x1f3ac;</div>
-          <p><strong>Click to upload a video</strong></p>
-           <p id="uploadStatus">MP4, MKV, WebM, MOV</p>
+      <!-- Source Selector (host only) -->
+      <div id="uploadArea" class="hidden" style="text-align:center;padding:20px">
+        <div id="sourceSelector" style="display:flex;gap:8px;justify-content:center;margin-bottom:16px">
+          <button class="btn source-btn active" data-source="upload" style="width:auto;padding:8px 20px" onclick="selectSource('upload')">Upload</button>
+          <button class="btn source-btn" data-source="youtube" style="width:auto;padding:8px 20px" onclick="selectSource('youtube')">YouTube</button>
+          <button class="btn source-btn" data-source="drive" style="width:auto;padding:8px 20px" onclick="selectSource('drive')">Drive</button>
         </div>
-        <input type="file" id="fileInput" accept="video/mp4,video/webm,video/x-matroska,video/quicktime,video/*">
+
+        <!-- Upload -->
+        <div id="uploadSection" class="upload-area" onclick="document.getElementById('fileInput').click()">
+          <div class="box">
+            <div class="icon">&#x1f3ac;</div>
+            <p><strong>Click to upload a video</strong></p>
+            <p id="uploadStatus">MP4, MKV, WebM, MOV</p>
+          </div>
+          <input type="file" id="fileInput" accept="video/mp4,video/webm,video/x-matroska,video/quicktime,video/*">
+        </div>
+
+        <!-- YouTube -->
+        <div id="youtubeSection" class="hidden" style="padding:16px 0">
+          <p style="margin-bottom:12px;color:var(--text2)">Paste a YouTube video URL or ID</p>
+          <div style="display:flex;gap:8px;max-width:500px;margin:0 auto">
+            <input type="text" id="youtubeInput" placeholder="https://youtube.com/watch?v=... or video ID" style="flex:1">
+            <button class="btn" style="width:auto;padding:10px 20px" onclick="loadYouTube()">Load</button>
+          </div>
+        </div>
+
+        <!-- Google Drive -->
+        <div id="driveSection" class="hidden" style="padding:16px 0">
+          <p style="margin-bottom:12px;color:var(--text2)">Paste a Google Drive video share link</p>
+          <div style="display:flex;gap:8px;max-width:500px;margin:0 auto">
+            <input type="text" id="driveInput" placeholder="https://drive.google.com/file/d/.../view" style="flex:1">
+            <button class="btn" style="width:auto;padding:10px 20px" onclick="loadDrive()">Load</button>
+          </div>
+        </div>
       </div>
       <!-- Player -->
       <div id="playerArea" class="hidden" style="width:100%;height:100%;position:relative">
         <video id="video" playsinline></video>
+        <div id="youtubePlayer" class="hidden" style="width:100%;height:100%;position:absolute;inset:0"></div>
         <!-- Waiting overlay (viewers) -->
         <div id="waitOverlay" class="hidden center-msg" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.7);z-index:5">
           <div class="icon">&#x23f3;</div>
@@ -403,6 +433,10 @@ let localSeek = false;
 let ignoreNext = false;
 let receiving = false;
 let syncTimer = null;
+let playerType = null;
+let ytPlayer = null;
+let ytApiReady = false;
+let ytInterval = null;
 
 // ==================== DOM ====================
 const $ = (id) => document.getElementById(id);
@@ -507,20 +541,54 @@ function reclaimHost() {
       setTimeout(() => location.reload(), 2000);
       return;
     }
-    // Restore host UI elements if not already showing
-    $("uploadArea").classList.remove("hidden");
-    if (!res.hasMeta) {
+    // Restore host UI and source
+    if (res.meta && res.meta.source) {
+      if (res.meta.source === "youtube") {
+        playerType = "youtube";
+        $("uploadArea").classList.add("hidden");
+        $("playerArea").classList.remove("hidden");
+        $("waitOverlay").classList.add("hidden");
+        liveBadge.classList.remove("hidden");
+        if (ytApiReady) {
+          createYTPlayer(res.meta.videoId);
+        } else {
+          loadYouTubeAPI();
+          const check = setInterval(() => {
+            if (ytApiReady) { clearInterval(check); createYTPlayer(res.meta.videoId); }
+          }, 200);
+        }
+      } else if (res.meta.source === "drive") {
+        playerType = "drive";
+        $("uploadArea").classList.add("hidden");
+        $("playerArea").classList.remove("hidden");
+        $("waitOverlay").classList.remove("hidden");
+        liveBadge.classList.add("hidden");
+        video.src = res.meta.directUrl;
+        video.load();
+      } else {
+        playerType = "upload";
+        $("uploadArea").classList.remove("hidden");
+        $("uploadStatus").textContent = "MP4, MKV, WebM, MOV";
+      }
+    } else {
+      $("uploadArea").classList.remove("hidden");
       $("uploadStatus").textContent = "MP4, MKV, WebM, MOV";
     }
     // Restore room state
     if (res.state) {
       ignoreNext = true;
-      if (res.state.p) {
-        video.currentTime = res.state.t;
-        video.play().catch(() => {});
+      if (res.meta && res.meta.source === "youtube" && ytPlayer && ytPlayer.seekTo) {
+        ytPlayer.seekTo(res.state.t, true);
+        if (res.state.p) ytPlayer.playVideo();
+        else ytPlayer.pauseVideo();
       } else {
-        video.currentTime = res.state.t;
-        video.pause();
+        if (res.state.p) {
+          video.currentTime = res.state.t;
+          video.play().catch(() => {});
+        } else {
+          video.currentTime = res.state.t;
+          video.pause();
+        }
       }
       setTimeout(() => (ignoreNext = false), 1000);
     }
@@ -540,7 +608,9 @@ function enterRoom() {
     // Start periodic sync
     if (syncTimer) clearInterval(syncTimer);
     syncTimer = setInterval(() => {
-      if (video.duration) {
+      if (playerType === "youtube" && ytPlayer && ytPlayer.getCurrentTime) {
+        socket.emit("sync-state", { t: ytPlayer.getCurrentTime(), p: ytPlayer.getPlayerState() === YT.PlayerState.PLAYING });
+      } else if (video.duration) {
         socket.emit("sync-state", { t: video.currentTime, p: !video.paused });
       }
     }, 5000);
@@ -622,11 +692,11 @@ $("fileInput").addEventListener("change", function (e) {
 // ==================== CHANGE VIDEO ====================
 function changeVideo() {
   if (!isHost) return;
-  // Stop current video
+  destroyYTPlayer();
+  if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
   video.pause();
   video.src = "";
   video.load();
-  // Reset state
   videoMeta = null;
   totalChunks = 0;
   chunkBuf = [];
@@ -636,15 +706,19 @@ function changeVideo() {
   chunkQ = [];
   appending = false;
   localSeek = false;
-  // Notify viewers to reset
+  playerType = null;
   socket.emit("reset");
   $("changeBtn").classList.add("hidden");
   $("playerArea").classList.add("hidden");
+  $("youtubePlayer").classList.add("hidden");
+  video.classList.remove("hidden");
   $("uploadArea").classList.remove("hidden");
   $("uploadStatus").textContent = "MP4, MKV, WebM, MOV";
   liveBadge.classList.add("hidden");
-  // Clear file input so same file can be re-selected
+  selectSource("upload");
   $("fileInput").value = "";
+  $("youtubeInput").value = "";
+  $("driveInput").value = "";
 }
 
 // ==================== FULLSCREEN ====================
@@ -679,39 +753,48 @@ document.addEventListener("webkitfullscreenchange", () => {
 // ==================== VIDEO PLAYER ====================
 function togglePlay() {
   if (!isHost || ignoreNext) return;
-  if (video.paused) video.play();
-  else video.pause();
+  if (playerType === "youtube" && ytPlayer && ytPlayer.getPlayerState) {
+    if (ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
+    else ytPlayer.playVideo();
+  } else if (video.paused) {
+    video.play();
+  } else {
+    video.pause();
+  }
 }
 
 function onSeek() {
   if (!isHost || ignoreNext) return;
   localSeek = true;
-  const t = (seekbar.value / 1000) * (video.duration || 1);
-  video.currentTime = t;
+  const t = (seekbar.value / 1000) * getDuration();
+  if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
+    ytPlayer.seekTo(t, true);
+  } else {
+    video.currentTime = t;
+  }
   socket.emit("seek", t);
   setTimeout(() => (localSeek = false), 100);
 }
 
-video.addEventListener("timeupdate", () => {
-  if (!video.duration) return;
-  if (!localSeek) {
-    seekbar.value = (video.currentTime / video.duration) * 1000;
-  }
-  timeDisplay.textContent = `${fmtTime(video.currentTime)} / ${fmtTime(video.duration)}`;
-});
 
 video.addEventListener("play", () => {
   playBtn.innerHTML = "\u23F8";
-  if (isHost && !ignoreNext) socket.emit("play", video.currentTime);
+  if (isHost && !ignoreNext && playerType !== "youtube") socket.emit("play", video.currentTime);
 });
 
 video.addEventListener("pause", () => {
   playBtn.innerHTML = "\u25B6";
-  if (isHost && !ignoreNext) socket.emit("pause", video.currentTime);
+  if (isHost && !ignoreNext && playerType !== "youtube") socket.emit("pause", video.currentTime);
 });
 
 video.addEventListener("seeked", () => {
-  if (isHost && !localSeek && !ignoreNext) socket.emit("seek", video.currentTime);
+  if (isHost && !localSeek && !ignoreNext && playerType !== "youtube") socket.emit("seek", video.currentTime);
+});
+
+video.addEventListener("timeupdate", () => {
+  if (!video.duration || playerType === "youtube") return;
+  if (!localSeek) seekbar.value = (video.currentTime / video.duration) * 1000;
+  timeDisplay.textContent = `${fmtTime(video.currentTime)} / ${fmtTime(video.duration)}`;
 });
 
 video.addEventListener("loadedmetadata", () => {
@@ -733,9 +816,161 @@ function fmtTime(s) {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
+// ==================== SOURCE SELECTOR ====================
+function selectSource(type) {
+  document.querySelectorAll(".source-btn").forEach(b => b.classList.toggle("active", b.dataset.source === type));
+  $("uploadSection").classList.toggle("hidden", type !== "upload");
+  $("youtubeSection").classList.toggle("hidden", type !== "youtube");
+  $("driveSection").classList.toggle("hidden", type !== "drive");
+}
+
+function extractYouTubeId(val) {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/,
+  ];
+  for (const p of patterns) {
+    const m = val.trim().match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function extractDriveId(val) {
+  const m = val.trim().match(/\/file\/d\/([a-zA-Z0-9_-]+)\//);
+  return m ? m[1] : null;
+}
+
+function loadYouTube() {
+  if (!isHost) return;
+  const val = $("youtubeInput").value.trim();
+  if (!val) return toast("Enter a YouTube URL or video ID");
+  const videoId = extractYouTubeId(val);
+  if (!videoId) return toast("Invalid YouTube URL");
+  socket.emit("meta", { source: "youtube", videoId });
+  $("changeBtn").classList.remove("hidden");
+}
+
+function loadDrive() {
+  if (!isHost) return;
+  const val = $("driveInput").value.trim();
+  if (!val) return toast("Enter a Google Drive share link");
+  const fileId = extractDriveId(val);
+  if (!fileId) return toast("Invalid Google Drive link");
+  const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+  socket.emit("meta", { source: "drive", fileId, directUrl });
+  $("changeBtn").classList.remove("hidden");
+}
+
+// ==================== YOUTUBE API ====================
+function loadYouTubeAPI() {
+  if (window.YT && window.YT.Player) { ytApiReady = true; return; }
+  const tag = document.createElement("script");
+  tag.src = "https://www.youtube.com/iframe_api";
+  document.getElementsByTagName("script")[0].parentNode.insertBefore(tag, document.getElementsByTagName("script")[0]);
+}
+
+window.onYouTubeIframeAPIReady = function () { ytApiReady = true; };
+
+function createYTPlayer(videoId) {
+  destroyYTPlayer();
+  $("youtubePlayer").classList.remove("hidden");
+  ytPlayer = new YT.Player("youtubePlayer", {
+    videoId,
+    height: "100%",
+    width: "100%",
+    playerVars: {
+      autoplay: 0,
+      controls: 0,
+      modestbranding: 1,
+      rel: 0,
+      enablejsapi: 1,
+      playsinline: 1,
+    },
+    events: {
+      onReady() { onYTReady(); },
+      onStateChange(e) { onYTStateChange(e); },
+    },
+  });
+}
+
+function destroyYTPlayer() {
+  if (ytPlayer) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
+}
+
+function onYTReady() {
+  // Start time update interval for seekbar
+  if (ytInterval) clearInterval(ytInterval);
+  ytInterval = setInterval(updateYTTime, 250);
+}
+
+function onYTStateChange(event) {
+  if (!isHost || ignoreNext) return;
+  if (event.data === YT.PlayerState.PLAYING) {
+    playBtn.innerHTML = "\u23F8";
+    socket.emit("play", ytPlayer.getCurrentTime());
+  } else if (event.data === YT.PlayerState.PAUSED) {
+    playBtn.innerHTML = "\u25B6";
+    socket.emit("pause", ytPlayer.getCurrentTime());
+  }
+}
+
+function updateYTTime() {
+  if (playerType !== "youtube" || !ytPlayer || !ytPlayer.getCurrentTime) return;
+  const t = ytPlayer.getCurrentTime();
+  const d = ytPlayer.getDuration();
+  if (d) {
+    if (!localSeek) seekbar.value = (t / d) * 1000;
+    timeDisplay.textContent = `${fmtTime(t)} / ${fmtTime(d)}`;
+  }
+}
+
+function getDuration() {
+  if (playerType === "youtube" && ytPlayer && ytPlayer.getDuration) return ytPlayer.getDuration() || 1;
+  return video.duration || 1;
+}
+
 // ==================== SOCKET EVENTS ====================
 socket.on("meta", (m) => {
   videoMeta = m;
+  destroyYTPlayer();
+  if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
+  $("youtubePlayer").classList.add("hidden");
+  video.classList.remove("hidden");
+
+  // YouTube source
+  if (m.source === "youtube") {
+    playerType = "youtube";
+    $("playerArea").classList.remove("hidden");
+    $("uploadArea").classList.add("hidden");
+    $("waitOverlay").classList.add("hidden");
+    liveBadge.classList.remove("hidden");
+
+    if (ytApiReady) {
+      createYTPlayer(m.videoId);
+    } else {
+      loadYouTubeAPI();
+      const check = setInterval(() => {
+        if (ytApiReady) { clearInterval(check); createYTPlayer(m.videoId); }
+      }, 200);
+    }
+    return;
+  }
+
+  // Google Drive source
+  if (m.source === "drive") {
+    playerType = "drive";
+    $("playerArea").classList.remove("hidden");
+    $("waitOverlay").classList.remove("hidden");
+    $("waitMsg").textContent = "Loading video...";
+    liveBadge.classList.add("hidden");
+    video.src = m.directUrl;
+    video.load();
+    return;
+  }
+
+  // Upload source - existing behavior
+  playerType = "upload";
   totalChunks = m.t;
   chunkBuf = new Array(m.t);
   useFallback = false;
@@ -745,13 +980,11 @@ socket.on("meta", (m) => {
   appending = false;
   receiving = false;
 
-  // Show player immediately with loading overlay
   $("playerArea").classList.remove("hidden");
   $("waitOverlay").classList.remove("hidden");
   $("waitMsg").textContent = "Loading video... 0%";
   liveBadge.classList.add("hidden");
 
-  // Try MediaSource
   const mime = m.type || "video/mp4";
   if (window.MediaSource && MediaSource.isTypeSupported(mime)) {
     setupMediaSource(mime);
@@ -784,26 +1017,51 @@ socket.on("chunk", (d) => {
 
 socket.on("play", (t) => {
   ignoreNext = true;
-  video.currentTime = t;
-  video.play().catch(() => {});
+  if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
+    ytPlayer.seekTo(t, true);
+    ytPlayer.playVideo();
+  } else {
+    video.currentTime = t;
+    video.play().catch(() => {});
+  }
   setTimeout(() => (ignoreNext = false), 1000);
 });
 
 socket.on("pause", (t) => {
   ignoreNext = true;
-  video.currentTime = t;
-  video.pause();
+  if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
+    ytPlayer.seekTo(t, true);
+    ytPlayer.pauseVideo();
+  } else {
+    video.currentTime = t;
+    video.pause();
+  }
   setTimeout(() => (ignoreNext = false), 1000);
 });
 
 socket.on("seek", (t) => {
   ignoreNext = true;
-  video.currentTime = t;
+  if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
+    ytPlayer.seekTo(t, true);
+  } else {
+    video.currentTime = t;
+  }
   setTimeout(() => (ignoreNext = false), 1000);
 });
 
 socket.on("sync-state", ({ t, p }) => {
   if (isHost) return;
+  if (playerType === "youtube" && ytPlayer && ytPlayer.getCurrentTime) {
+    const ct = ytPlayer.getCurrentTime();
+    if (Math.abs(ct - t) > 2) {
+      ignoreNext = true;
+      ytPlayer.seekTo(t, true);
+      setTimeout(() => (ignoreNext = false), 1000);
+    }
+    if (p && ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING) ytPlayer.playVideo();
+    else if (!p && ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
+    return;
+  }
   if (!$("playerArea").classList.contains("hidden") && !$("waitOverlay").classList.contains("hidden")) return;
   const diff = Math.abs(video.currentTime - t);
   if (diff > 2 && video.duration) {
@@ -816,12 +1074,18 @@ socket.on("sync-state", ({ t, p }) => {
 });
 
 socket.on("state", (s) => {
-  if (s.p) {
-    video.currentTime = s.t;
-    video.play().catch(() => {});
-  } else {
-    video.currentTime = s.t;
-    video.pause();
+  if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
+    ytPlayer.seekTo(s.t, true);
+    if (s.p) ytPlayer.playVideo();
+    else ytPlayer.pauseVideo();
+  } else if (!playerType || playerType === "upload" || playerType === "drive") {
+    if (s.p) {
+      video.currentTime = s.t;
+      video.play().catch(() => {});
+    } else {
+      video.currentTime = s.t;
+      video.pause();
+    }
   }
 });
 
@@ -834,6 +1098,8 @@ socket.on("chat", ({ n, m, id }) => {
 });
 
 socket.on("reset", () => {
+  destroyYTPlayer();
+  if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
   video.pause();
   video.src = "";
   video.load();
@@ -845,7 +1111,10 @@ socket.on("reset", () => {
   sb = null;
   chunkQ = [];
   appending = false;
+  playerType = null;
   $("playerArea").classList.add("hidden");
+  $("youtubePlayer").classList.add("hidden");
+  video.classList.remove("hidden");
   $("waitOverlay").classList.remove("hidden");
   liveBadge.classList.add("hidden");
 });
