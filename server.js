@@ -11,7 +11,7 @@ const io = new Server(server, {
   cors: { origin: "*" },
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || process.env.PORT || 3000;
 const rooms = {};
 
 app.use(express.static(__dirname));
@@ -128,3 +128,4 @@ io.on("connection", (socket) => {
 server.listen(PORT, () => {
   console.log(`ViewNoveen running on http://0.0.0.0:${PORT}`);
 });
+
