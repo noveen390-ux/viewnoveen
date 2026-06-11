@@ -960,8 +960,15 @@ function loadDrive() {
 }
 
 function extractVkId(val) {
-  const m = val.trim().match(/vk\.com\/video(-?\d+)_(\d+)/);
-  return m ? { oid: m[1], id: m[2] } : null;
+  const patterns = [
+    /vk\.com\/video(-?\d+)_(\d+)/,
+    /(?:m\.)?vkvideo\.ru\/video(-?\d+)_(\d+)/,
+  ];
+  for (const p of patterns) {
+    const m = val.trim().match(p);
+    if (m) return { oid: m[1], id: m[2] };
+  }
+  return null;
 }
 
 function loadVk() {
