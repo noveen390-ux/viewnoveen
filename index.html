@@ -342,7 +342,7 @@ input,button{font-family:inherit;font-size:14px}
         <div class="box">
           <div class="icon">&#x1f3ac;</div>
           <p><strong>Click to upload a video</strong></p>
-          <p id="uploadStatus">MP4, MKV, WebM, MOV &bull; Max 500MB</p>
+           <p id="uploadStatus">MP4, MKV, WebM, MOV</p>
         </div>
         <input type="file" id="fileInput" accept="video/mp4,video/webm,video/x-matroska,video/quicktime,video/*">
       </div>
@@ -510,7 +510,7 @@ function reclaimHost() {
     // Restore host UI elements if not already showing
     $("uploadArea").classList.remove("hidden");
     if (!res.hasMeta) {
-      $("uploadStatus").textContent = "MP4, MKV, WebM, MOV \u2022 Max 500MB";
+      $("uploadStatus").textContent = "MP4, MKV, WebM, MOV";
     }
     // Restore room state
     if (res.state) {
@@ -535,7 +535,7 @@ function enterRoom() {
 
   if (isHost) {
     $("uploadArea").classList.remove("hidden");
-    $("uploadStatus").textContent = "MP4, MKV, WebM, MOV \u2022 Max 500MB";
+    $("uploadStatus").textContent = "MP4, MKV, WebM, MOV";
     liveBadge.classList.add("hidden");
     // Start periodic sync
     if (syncTimer) clearInterval(syncTimer);
@@ -576,11 +576,6 @@ function copyCode() {
 $("fileInput").addEventListener("change", function (e) {
   const file = e.target.files[0];
   if (!file) return;
-
-  if (file.size > 500 * 1024 * 1024) {
-    toast("File too large. Max 500MB.");
-    return;
-  }
 
   const CHUNK = 64 * 1024;
   const total = Math.ceil(file.size / CHUNK);
@@ -646,7 +641,7 @@ function changeVideo() {
   $("changeBtn").classList.add("hidden");
   $("playerArea").classList.add("hidden");
   $("uploadArea").classList.remove("hidden");
-  $("uploadStatus").textContent = "MP4, MKV, WebM, MOV \u2022 Max 500MB";
+  $("uploadStatus").textContent = "MP4, MKV, WebM, MOV";
   liveBadge.classList.add("hidden");
   // Clear file input so same file can be re-selected
   $("fileInput").value = "";

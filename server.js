@@ -10,7 +10,7 @@ const fs = require("fs");
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
-  maxHttpBufferSize: 100 * 1024 * 1024,
+  maxHttpBufferSize: 1024 * 1024 * 1024,
   cors: { origin: "*" },
 });
 
