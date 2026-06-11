@@ -439,10 +439,18 @@ input,button{font-family:inherit;font-size:14px}
 <!-- Toast -->
 <div id="toast"></div>
 
+<!-- Reconnecting bar -->
+<div id="reconnectBar" class="hidden" style="position:fixed;top:0;left:0;right:0;z-index:10000;background:rgba(88,101,242,0.9);color:#fff;text-align:center;padding:3px 12px;font-size:12px;font-weight:500;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)">Reconnecting...</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
 // ==================== STATE ====================
-const socket = io();
+const socket = io({
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 3000,
+});
 let connected = false;
 let roomCode = null;
 let isHost = false;
@@ -471,6 +479,8 @@ let dmReady = false;
 let dmDuration = 1;
 let dmPlaying = false;
 let dmCurrentTime = 0;
+let pendingState = null;
+let intentionalLeave = false;
 
 // ==================== DOM ====================
 const $ = (id) => document.getElementById(id);
@@ -497,37 +507,27 @@ socket.on("connect", () => {
   }
   connected = true;
 
-  // Rejoin room if we were in one (reconnect)
   if (roomCode) {
-    hideToast();
-    toast("Reconnected!");
     if (isHost) reclaimHost();
     else rejoinRoom();
   }
 });
 
 socket.on("disconnect", () => {
-  if (roomCode) {
-    toast("Connection lost. Reconnecting...", 0);
+  if (roomCode && !intentionalLeave) {
+    $("reconnectBar").classList.remove("hidden");
   }
 });
 
 socket.on("reconnect_attempt", (n) => {
   if (roomCode) {
-    toast(`Reconnecting (attempt ${n})...`, 0);
+    $("reconnectBar").classList.remove("hidden");
+    $("reconnectBar").textContent = `Reconnecting (attempt ${n})...`;
   }
 });
 
-socket.on("reconnect_error", () => {
-  if (roomCode) {
-    toast("Reconnection failed. Retrying...", 0);
-  }
-});
-
-socket.on("reconnect_failed", () => {
-  if (roomCode) {
-    toast("Connection lost. Please refresh the page.", 0);
-  }
+socket.on("reconnect", () => {
+  $("reconnectBar").classList.add("hidden");
 });
 
 // ==================== ROOMS ====================
@@ -560,7 +560,9 @@ function rejoinRoom() {
       toast("Room no longer available.");
       roomCode = null;
       isHost = false;
-      setTimeout(() => location.reload(), 2000);
+      $("room").classList.add("hidden");
+      $("landing").classList.remove("hidden");
+      $("reconnectBar").classList.add("hidden");
     }
   });
 }
@@ -572,7 +574,9 @@ function reclaimHost() {
       toast("Room no longer available.");
       roomCode = null;
       isHost = false;
-      setTimeout(() => location.reload(), 2000);
+      $("room").classList.add("hidden");
+      $("landing").classList.remove("hidden");
+      $("reconnectBar").classList.add("hidden");
       return;
     }
     // Restore host UI and source
@@ -695,6 +699,7 @@ function enterRoom() {
 }
 
 function leaveRoom() {
+  intentionalLeave = true;
   socket.disconnect();
   location.reload();
 }
@@ -1063,9 +1068,14 @@ function destroyYTPlayer() {
 }
 
 function onYTReady() {
-  // Start time update interval for seekbar
   if (ytInterval) clearInterval(ytInterval);
   ytInterval = setInterval(updateYTTime, 250);
+  if (pendingState) {
+    ytPlayer.seekTo(pendingState.t, true);
+    if (pendingState.p) ytPlayer.playVideo();
+    else ytPlayer.pauseVideo();
+    pendingState = null;
+  }
 }
 
 function onYTStateChange(event) {
@@ -1142,6 +1152,12 @@ function destroyVKPlayer() {
 function onVKReady() {
   if (vkInterval) clearInterval(vkInterval);
   vkInterval = setInterval(updateVKTime, 250);
+  if (pendingState) {
+    vkPlayer.seek(pendingState.t);
+    if (pendingState.p) vkPlayer.play();
+    else vkPlayer.pause();
+    pendingState = null;
+  }
 }
 
 function onVKStateChange(state) {
@@ -1392,26 +1408,34 @@ socket.on("seek", (t) => {
 
 socket.on("sync-state", ({ t, p }) => {
   if (isHost) return;
-  if (playerType === "youtube" && ytPlayer && ytPlayer.getCurrentTime) {
-    const ct = ytPlayer.getCurrentTime();
-    if (Math.abs(ct - t) > 2) {
-      ignoreNext = true;
-      ytPlayer.seekTo(t, true);
-      setTimeout(() => (ignoreNext = false), 1000);
+  if (playerType === "youtube") {
+    if (ytPlayer && ytPlayer.getCurrentTime) {
+      const ct = ytPlayer.getCurrentTime();
+      if (Math.abs(ct - t) > 2) {
+        ignoreNext = true;
+        ytPlayer.seekTo(t, true);
+        setTimeout(() => (ignoreNext = false), 1000);
+      }
+      if (p && ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING) ytPlayer.playVideo();
+      else if (!p && ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
+    } else {
+      pendingState = { t, p };
     }
-    if (p && ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING) ytPlayer.playVideo();
-    else if (!p && ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
     return;
   }
-  if (playerType === "vk" && vkPlayer && vkPlayer.getCurrentTime) {
-    const ct = vkPlayer.getCurrentTime();
-    if (Math.abs(ct - t) > 2) {
-      ignoreNext = true;
-      vkPlayer.seek(t);
-      setTimeout(() => (ignoreNext = false), 1000);
+  if (playerType === "vk") {
+    if (vkPlayer && vkPlayer.getCurrentTime) {
+      const ct = vkPlayer.getCurrentTime();
+      if (Math.abs(ct - t) > 2) {
+        ignoreNext = true;
+        vkPlayer.seek(t);
+        setTimeout(() => (ignoreNext = false), 1000);
+      }
+      if (p && vkPlayer.getState() !== "playing") vkPlayer.play();
+      else if (!p && vkPlayer.getState() === "playing") vkPlayer.pause();
+    } else {
+      pendingState = { t, p };
     }
-    if (p && vkPlayer.getState() !== "playing") vkPlayer.play();
-    else if (!p && vkPlayer.getState() === "playing") vkPlayer.pause();
     return;
   }
   if (playerType === "dailymotion") {
@@ -1431,14 +1455,22 @@ socket.on("sync-state", ({ t, p }) => {
 });
 
 socket.on("state", (s) => {
-  if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
-    ytPlayer.seekTo(s.t, true);
-    if (s.p) ytPlayer.playVideo();
-    else ytPlayer.pauseVideo();
-  } else if (playerType === "vk" && vkPlayer && vkPlayer.seek) {
-    vkPlayer.seek(s.t);
-    if (s.p) vkPlayer.play();
-    else vkPlayer.pause();
+  if (playerType === "youtube") {
+    if (ytPlayer && ytPlayer.seekTo) {
+      ytPlayer.seekTo(s.t, true);
+      if (s.p) ytPlayer.playVideo();
+      else ytPlayer.pauseVideo();
+    } else {
+      pendingState = s;
+    }
+  } else if (playerType === "vk") {
+    if (vkPlayer && vkPlayer.seek) {
+      vkPlayer.seek(s.t);
+      if (s.p) vkPlayer.play();
+      else vkPlayer.pause();
+    } else {
+      pendingState = s;
+    }
   } else if (playerType === "dailymotion") {
     if (s.p) { dmCommand("seek", [s.t]); dmCommand("play"); }
     else { dmCommand("seek", [s.t]); dmCommand("pause"); }
@@ -1487,7 +1519,12 @@ socket.on("reset", () => {
 
 socket.on("end", () => {
   toast("Host left. Room closed.");
-  setTimeout(() => location.reload(), 2000);
+  roomCode = null;
+  isHost = false;
+  setTimeout(() => {
+    $("room").classList.add("hidden");
+    $("landing").classList.remove("hidden");
+  }, 2000);
 });
 
 // ==================== MEDIASOURCE ====================

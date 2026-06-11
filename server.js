@@ -12,6 +12,10 @@ const server = createServer(app);
 const io = new Server(server, {
   maxHttpBufferSize: 1024 * 1024 * 1024,
   cors: { origin: "*" },
+  pingTimeout: 60000,
+  pingInterval: 10000,
+  transports: ["websocket", "polling"],
+  allowUpgrades: true,
 });
 
 const PORT = process.env.PORT || process.env.PORT || 3000;
@@ -30,7 +34,7 @@ function loadRooms() {
       const raw = fs.readFileSync(ROOMS_FILE, "utf8");
       const data = JSON.parse(raw);
       const now = Date.now();
-      const STALE_MS = 60 * 60 * 1000;
+      const STALE_MS = 2 * 60 * 60 * 1000;
       let pruned = false;
       for (const code of Object.keys(data)) {
         const r = data[code];
@@ -122,7 +126,7 @@ function doSave() {
 // Clean up stale rooms every 10 minutes
 setInterval(() => {
   const now = Date.now();
-  const STALE_MS = 60 * 60 * 1000;
+  const STALE_MS = 2 * 60 * 60 * 1000;
   let changed = false;
   for (const code of Object.keys(rooms)) {
     const room = rooms[code];
@@ -135,6 +139,9 @@ setInterval(() => {
   }
   if (changed) doSave();
 }, 10 * 60 * 1000);
+
+// Persist room state to disk every 30 seconds
+setInterval(() => doSave(), 30 * 1000);
 
 rooms = loadRooms();
 
