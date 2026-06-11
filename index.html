@@ -431,8 +431,34 @@ socket.on("connect", () => {
 
   // Rejoin room if we were in one (reconnect)
   if (roomCode) {
+    hideToast();
+    toast("Reconnected!");
     if (isHost) reclaimHost();
     else rejoinRoom();
+  }
+});
+
+socket.on("disconnect", () => {
+  if (roomCode) {
+    toast("Connection lost. Reconnecting...", 0);
+  }
+});
+
+socket.on("reconnect_attempt", (n) => {
+  if (roomCode) {
+    toast(`Reconnecting (attempt ${n})...`, 0);
+  }
+});
+
+socket.on("reconnect_error", () => {
+  if (roomCode) {
+    toast("Reconnection failed. Retrying...", 0);
+  }
+});
+
+socket.on("reconnect_failed", () => {
+  if (roomCode) {
+    toast("Connection lost. Please refresh the page.", 0);
   }
 });
 
@@ -463,7 +489,9 @@ function rejoinRoom() {
   if (!roomCode) return;
   socket.emit("join", { c: roomCode, n: myName }, (res) => {
     if (res.err) {
-      toast("Reconnect failed. Reloading...");
+      toast("Room no longer available.");
+      roomCode = null;
+      isHost = false;
       setTimeout(() => location.reload(), 2000);
     }
   });
@@ -473,9 +501,16 @@ function reclaimHost() {
   if (!roomCode) return;
   socket.emit("reclaim-host", roomCode, (res) => {
     if (res.err) {
-      toast("Host reconnect failed. Reloading...");
+      toast("Room no longer available.");
+      roomCode = null;
+      isHost = false;
       setTimeout(() => location.reload(), 2000);
       return;
+    }
+    // Restore host UI elements if not already showing
+    $("uploadArea").classList.remove("hidden");
+    if (!res.hasMeta) {
+      $("uploadStatus").textContent = "MP4, MKV, WebM, MOV \u2022 Max 500MB";
     }
     // Restore room state
     if (res.state) {
@@ -951,12 +986,22 @@ function toggleChat() {
   $("chatToggleBtn").textContent = cs.classList.contains("collapsed") ? "\u25B2" : "\u2715";
 }
 
-function toast(msg) {
+let toastTimer = null;
+
+function toast(msg, duration) {
   const el = $("toast");
   el.textContent = msg;
   el.classList.add("show");
-  clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove("show"), 3000);
+  clearTimeout(toastTimer);
+  if (duration !== 0) {
+    toastTimer = setTimeout(() => el.classList.remove("show"), duration || 3000);
+  }
+}
+
+function hideToast() {
+  const el = $("toast");
+  el.classList.remove("show");
+  clearTimeout(toastTimer);
 }
 
 // Auto-join from URL

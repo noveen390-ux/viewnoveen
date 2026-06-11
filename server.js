@@ -5,6 +5,7 @@ const { createServer } = http;
 const { Server } = require("socket.io");
 const crypto = require("crypto");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 const server = createServer(app);
@@ -14,7 +15,128 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || process.env.PORT || 3000;
-const rooms = {};
+const DATA_DIR = path.join(__dirname, "data");
+const ROOMS_FILE = path.join(DATA_DIR, "rooms.json");
+let rooms = {};
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function loadRooms() {
+  ensureDataDir();
+  try {
+    if (fs.existsSync(ROOMS_FILE)) {
+      const raw = fs.readFileSync(ROOMS_FILE, "utf8");
+      const data = JSON.parse(raw);
+      const now = Date.now();
+      const STALE_MS = 60 * 60 * 1000;
+      let pruned = false;
+      for (const code of Object.keys(data)) {
+        const r = data[code];
+        // Skip stale rooms (no host abandoned over an hour ago)
+        if (r._abandonedAt && now - r._abandonedAt > STALE_MS) {
+          deleteChunksFile(code);
+          delete data[code];
+          pruned = true;
+          continue;
+        }
+        const chunkFile = path.join(DATA_DIR, `${code}.chunks`);
+        if (r.total > 0 && fs.existsSync(chunkFile)) {
+          const buf = fs.readFileSync(chunkFile);
+          r.chunks = new Array(r.total);
+          let offset = 0;
+          while (offset < buf.length) {
+            const idx = buf.readUInt32BE(offset);
+            const sz = buf.readUInt32BE(offset + 4);
+            offset += 8;
+            if (sz > 0) r.chunks[idx] = buf.slice(offset, offset + sz);
+            offset += sz;
+          }
+        } else {
+          r.chunks = [];
+        }
+        r.users = {};
+        r.host = null;
+      }
+      if (pruned) doSave();
+      return data;
+    }
+  } catch (e) {
+    console.error("Failed to load rooms:", e.message);
+  }
+  return {};
+}
+
+function deleteChunksFile(code) {
+  try {
+    const f = path.join(DATA_DIR, `${code}.chunks`);
+    if (fs.existsSync(f)) fs.unlinkSync(f);
+  } catch (e) {}
+}
+
+let saveTimeout = null;
+function scheduleSave() {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(doSave, 500);
+}
+
+function doSave() {
+  saveTimeout = null;
+  ensureDataDir();
+  try {
+    const out = {};
+    for (const code of Object.keys(rooms)) {
+      const r = rooms[code];
+      out[code] = {
+        meta: r.meta,
+        total: r.total,
+        state: r.state,
+        _abandonedAt: r._abandonedAt || null,
+      };
+      if (r.total > 0) {
+        const chunkFile = path.join(DATA_DIR, `${code}.chunks`);
+        const fd = fs.openSync(chunkFile, "w");
+        for (let i = 0; i < r.total; i++) {
+          const c = r.chunks[i];
+          if (c) {
+            const buf = Buffer.isBuffer(c) ? c : Buffer.from(c);
+            const header = Buffer.alloc(8);
+            header.writeUInt32BE(i, 0);
+            header.writeUInt32BE(buf.length, 4);
+            fs.writeSync(fd, header);
+            fs.writeSync(fd, buf);
+          }
+        }
+        fs.closeSync(fd);
+      } else {
+        deleteChunksFile(code);
+      }
+    }
+    fs.writeFileSync(ROOMS_FILE, JSON.stringify(out, null, 2));
+  } catch (e) {
+    console.error("Failed to save rooms:", e.message);
+  }
+}
+
+// Clean up stale rooms every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  const STALE_MS = 60 * 60 * 1000;
+  let changed = false;
+  for (const code of Object.keys(rooms)) {
+    const room = rooms[code];
+    if (!room.host && Object.keys(room.users).length === 0 && room._abandonedAt && now - room._abandonedAt > STALE_MS) {
+      deleteChunksFile(code);
+      delete rooms[code];
+      changed = true;
+      console.log(`Cleaned up stale room ${code}`);
+    }
+  }
+  if (changed) doSave();
+}, 10 * 60 * 1000);
+
+rooms = loadRooms();
 
 app.use(express.static(__dirname));
 
@@ -38,6 +160,7 @@ io.on("connection", (socket) => {
     socket.join(code);
     rooms[code].users[socket.id] = { n: "Host" };
     io.to(code).emit("count", Object.keys(rooms[code].users).length);
+    scheduleSave();
     cb({ code });
   });
 
@@ -71,6 +194,7 @@ io.on("connection", (socket) => {
       room.total = m.t;
       room.chunks = new Array(m.t);
       socket.to(socket.data.room).emit("meta", m);
+      scheduleSave();
     }
   });
 
@@ -79,6 +203,7 @@ io.on("connection", (socket) => {
     if (room && room.host === socket.id && d.i < room.total) {
       room.chunks[d.i] = d.d;
       socket.to(socket.data.room).emit("chunk", d);
+      scheduleSave();
     }
   });
 
@@ -87,6 +212,7 @@ io.on("connection", (socket) => {
     if (room && room.host === socket.id) {
       room.state = { p: true, t };
       socket.to(socket.data.room).emit("play", t);
+      scheduleSave();
     }
   });
 
@@ -95,6 +221,7 @@ io.on("connection", (socket) => {
     if (room && room.host === socket.id) {
       room.state = { p: false, t };
       socket.to(socket.data.room).emit("pause", t);
+      scheduleSave();
     }
   });
 
@@ -103,6 +230,7 @@ io.on("connection", (socket) => {
     if (room && room.host === socket.id) {
       room.state = { ...room.state, t };
       socket.to(socket.data.room).emit("seek", t);
+      scheduleSave();
     }
   });
 
@@ -117,21 +245,24 @@ io.on("connection", (socket) => {
       room.meta = null;
       room.chunks = [];
       room.total = 0;
+      deleteChunksFile(socket.data.room);
       socket.to(socket.data.room).emit("reset");
+      scheduleSave();
     }
   });
 
   socket.on("reclaim-host", (code, cb) => {
     const room = rooms[code];
     if (room) {
-      // Remove old host entry if exists
       if (room.host) delete room.users[room.host];
       room.host = socket.id;
+      room._abandonedAt = null;
       socket.data.room = code;
       socket.join(code);
       room.users[socket.id] = { n: "Host" };
       cb({ ok: true, state: room.state, hasMeta: !!room.meta, total: room.total });
       io.to(code).emit("count", Object.keys(room.users).length);
+      scheduleSave();
     } else {
       cb({ err: "Room not found." });
     }
@@ -142,6 +273,7 @@ io.on("connection", (socket) => {
     if (room && room.host === socket.id) {
       room.state = { p, t };
       socket.to(socket.data.room).emit("sync-state", { t, p });
+      scheduleSave();
     }
   });
 
@@ -150,14 +282,20 @@ io.on("connection", (socket) => {
     const room = rooms[code];
     if (!room) return;
 
+    const wasHost = socket.id === room.host;
     delete room.users[socket.id];
 
-    if (socket.id === room.host || Object.keys(room.users).length === 0) {
-      delete rooms[code];
-      io.to(code).emit("end");
+    if (wasHost) {
+      room.host = null;
+      room._abandonedAt = Date.now();
+      io.to(code).emit("count", Object.keys(room.users).length);
+    } else if (Object.keys(room.users).length === 0 && !room.host) {
+      room._abandonedAt = Date.now();
     } else {
       io.to(code).emit("count", Object.keys(room.users).length);
     }
+
+    scheduleSave();
   });
 });
 
@@ -165,7 +303,6 @@ server.listen(PORT, () => {
   console.log(`ViewNoveen running on http://0.0.0.0:${PORT}`);
 });
 
-// Self-ping every 4 minutes to prevent Railway cold starts
 const SELF_URL = process.env.RAILWAY_PRIVATE_URL || process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`;
 const agent = SELF_URL.startsWith("https") ? https : http;
 setInterval(() => {
@@ -175,4 +312,3 @@ setInterval(() => {
     console.error(`Self-ping failed: ${err.message}`);
   });
 }, 4 * 60 * 1000);
-
