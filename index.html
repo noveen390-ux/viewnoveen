@@ -360,6 +360,7 @@ input,button{font-family:inherit;font-size:14px}
           <input type="range" id="seekbar" min="0" max="1000" value="0" oninput="onSeek()">
           <span class="time" id="timeDisplay">0:00 / 0:00</span>
           <span class="live-badge" id="liveBadge"><span class="dot"></span> LIVE</span>
+          <button id="changeBtn" class="hidden" onclick="changeVideo()" title="Change Video" style="font-size:18px">&#x21bb;</button>
         </div>
       </div>
     </div>
@@ -385,6 +386,7 @@ input,button{font-family:inherit;font-size:14px}
 <script>
 // ==================== STATE ====================
 const socket = io();
+let connected = false;
 let roomCode = null;
 let isHost = false;
 let myName = "Anonymous";
@@ -406,6 +408,22 @@ const seekbar = $("seekbar");
 const timeDisplay = $("timeDisplay");
 const playBtn = $("playBtn");
 const liveBadge = $("liveBadge");
+const createBtn = $("createBtn") || document.querySelector(".landing-forms .section:first-child .btn");
+const joinBtn = $("joinBtn") || document.querySelector(".landing-forms .section:last-child .btn");
+
+// Disable buttons until socket connects
+createBtn.disabled = true;
+createBtn.textContent = "Connecting...";
+joinBtn.disabled = true;
+joinBtn.textContent = "Connecting...";
+
+socket.on("connect", () => {
+  connected = true;
+  createBtn.disabled = false;
+  createBtn.textContent = "Create Room";
+  joinBtn.disabled = false;
+  joinBtn.textContent = "Join Room";
+});
 
 // ==================== ROOMS ====================
 function createRoom() {
@@ -512,12 +530,41 @@ $("fileInput").addEventListener("change", function (e) {
         $("uploadArea").classList.add("hidden");
         $("playerArea").classList.remove("hidden");
         liveBadge.classList.remove("hidden");
+        $("changeBtn").classList.remove("hidden");
       }
     };
     reader.readAsArrayBuffer(slice);
   }
   next();
 });
+
+// ==================== CHANGE VIDEO ====================
+function changeVideo() {
+  if (!isHost) return;
+  // Stop current video
+  video.pause();
+  video.src = "";
+  video.load();
+  // Reset state
+  videoMeta = null;
+  totalChunks = 0;
+  chunkBuf = [];
+  useFallback = false;
+  ms = null;
+  sb = null;
+  chunkQ = [];
+  appending = false;
+  localSeek = false;
+  // Notify viewers to reset
+  socket.emit("reset");
+  $("changeBtn").classList.add("hidden");
+  $("playerArea").classList.add("hidden");
+  $("uploadArea").classList.remove("hidden");
+  $("uploadStatus").textContent = "MP4, MKV, WebM, MOV \u2022 Max 500MB";
+  liveBadge.classList.add("hidden");
+  // Clear file input so same file can be re-selected
+  $("fileInput").value = "";
+}
 
 // ==================== VIDEO PLAYER ====================
 function togglePlay() {
@@ -639,6 +686,23 @@ socket.on("count", (n) => {
 
 socket.on("chat", ({ n, m, id }) => {
   addChatMsg(n, m);
+});
+
+socket.on("reset", () => {
+  video.pause();
+  video.src = "";
+  video.load();
+  videoMeta = null;
+  totalChunks = 0;
+  chunkBuf = [];
+  useFallback = false;
+  ms = null;
+  sb = null;
+  chunkQ = [];
+  appending = false;
+  $("playerArea").classList.add("hidden");
+  $("waitOverlay").classList.remove("hidden");
+  liveBadge.classList.add("hidden");
 });
 
 socket.on("end", () => {
@@ -785,7 +849,12 @@ window.addEventListener("DOMContentLoaded", () => {
   if (c) {
     $("roomCode").value = c.toUpperCase();
     $("joinName").value = "Viewer";
-    setTimeout(joinRoom, 300);
+    if (connected) {
+      joinRoom();
+    } else {
+      const autoJoin = () => { socket.off("connect", autoJoin); joinRoom(); };
+      socket.on("connect", autoJoin);
+    }
   }
 });
 </script>

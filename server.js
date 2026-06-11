@@ -111,6 +111,16 @@ io.on("connection", (socket) => {
     if (room) io.to(socket.data.room).emit("chat", { n, m, id: Date.now() });
   });
 
+  socket.on("reset", () => {
+    const room = rooms[socket.data.room];
+    if (room && room.host === socket.id) {
+      room.meta = null;
+      room.chunks = [];
+      room.total = 0;
+      socket.to(socket.data.room).emit("reset");
+    }
+  });
+
   socket.on("disconnect", () => {
     const code = socket.data.room;
     const room = rooms[code];
