@@ -1,0 +1,130 @@
+const express = require("express");
+const { createServer } = require("http");
+const { Server } = require("socket.io");
+const crypto = require("crypto");
+const path = require("path");
+
+const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+  maxHttpBufferSize: 100 * 1024 * 1024,
+  cors: { origin: "*" },
+});
+
+const PORT = process.env.PORT || 3000;
+const rooms = {};
+
+app.use(express.static(__dirname));
+
+io.on("connection", (socket) => {
+  socket.on("create", (cb) => {
+    let code;
+    do {
+      code = crypto.randomBytes(3).toString("hex").toUpperCase();
+    } while (rooms[code]);
+
+    rooms[code] = {
+      host: socket.id,
+      meta: null,
+      chunks: [],
+      total: 0,
+      state: { p: false, t: 0 },
+      users: {},
+    };
+
+    socket.data.room = code;
+    socket.join(code);
+    rooms[code].users[socket.id] = { n: "Host" };
+    io.to(code).emit("count", Object.keys(rooms[code].users).length);
+    cb({ code });
+  });
+
+  socket.on("join", ({ c, n }, cb) => {
+    const code = c.toUpperCase();
+    const room = rooms[code];
+    if (!room) return cb({ err: "Room not found." });
+
+    socket.data.room = code;
+    socket.join(code);
+    room.users[socket.id] = { n: n || "Anonymous" };
+    io.to(code).emit("count", Object.keys(room.users).length);
+
+    if (room.meta) {
+      socket.emit("meta", room.meta);
+      for (let i = 0; i < room.total; i++) {
+        if (room.chunks[i]) {
+          socket.emit("chunk", { i, t: room.total, d: room.chunks[i] });
+        }
+      }
+    }
+
+    socket.emit("state", room.state);
+    cb({ ok: true });
+  });
+
+  socket.on("meta", (m) => {
+    const room = rooms[socket.data.room];
+    if (room && room.host === socket.id) {
+      room.meta = m;
+      room.total = m.t;
+      room.chunks = new Array(m.t);
+      socket.to(socket.data.room).emit("meta", m);
+    }
+  });
+
+  socket.on("chunk", (d) => {
+    const room = rooms[socket.data.room];
+    if (room && room.host === socket.id && d.i < room.total) {
+      room.chunks[d.i] = d.d;
+      socket.to(socket.data.room).emit("chunk", d);
+    }
+  });
+
+  socket.on("play", (t) => {
+    const room = rooms[socket.data.room];
+    if (room) {
+      room.state = { p: true, t };
+      socket.to(socket.data.room).emit("play", t);
+    }
+  });
+
+  socket.on("pause", (t) => {
+    const room = rooms[socket.data.room];
+    if (room) {
+      room.state = { p: false, t };
+      socket.to(socket.data.room).emit("pause", t);
+    }
+  });
+
+  socket.on("seek", (t) => {
+    const room = rooms[socket.data.room];
+    if (room) {
+      room.state = { ...room.state, t };
+      socket.to(socket.data.room).emit("seek", t);
+    }
+  });
+
+  socket.on("chat", ({ n, m }) => {
+    const room = rooms[socket.data.room];
+    if (room) io.to(socket.data.room).emit("chat", { n, m, id: Date.now() });
+  });
+
+  socket.on("disconnect", () => {
+    const code = socket.data.room;
+    const room = rooms[code];
+    if (!room) return;
+
+    delete room.users[socket.id];
+
+    if (socket.id === room.host || Object.keys(room.users).length === 0) {
+      delete rooms[code];
+      io.to(code).emit("end");
+    } else {
+      io.to(code).emit("count", Object.keys(room.users).length);
+    }
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`ViewNoveen running on http://0.0.0.0:${PORT}`);
+});

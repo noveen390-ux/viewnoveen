@@ -1,0 +1,520 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "postgresqlExtensions"]
+}
+
+datasource db {
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  extensions   = [pgcrypto, uuid_ossp]
+}
+
+enum UserStatus {
+  online
+  idle
+  dnd
+  invisible
+}
+
+enum RoomType {
+  watch
+  music
+  social
+}
+
+enum RoomPrivacy {
+  public
+  private
+  friends
+}
+
+enum ParticipantRole {
+  host
+  co_host
+  moderator
+  participant
+}
+
+enum MessageType {
+  text
+  image
+  video
+  audio
+  file
+  system
+  voice
+}
+
+enum ChannelType {
+  text
+  voice
+  announcement
+}
+
+enum FriendStatus {
+  pending
+  accepted
+  blocked
+}
+
+enum VideoSource {
+  youtube
+  google_drive
+  local
+  direct
+}
+
+enum NotificationType {
+  friend_request
+  friend_accepted
+  room_invite
+  party_invite
+  message
+  mention
+  call
+  follow
+  like
+  comment
+}
+
+enum AdminRole {
+  super_admin
+  admin
+  moderator
+  support
+}
+
+model User {
+  id             String         @id @default(uuid()) @db.Uuid
+  username       String         @unique @db.VarChar(30)
+  displayName    String         @db.VarChar(50)
+  email          String         @unique @db.VarChar(255)
+  passwordHash   String?
+  avatar         String         @default("")
+  banner         String         @default("")
+  bio            String         @default("") @db.Text
+  status         UserStatus     @default(online)
+  isVerified     Boolean        @default(false)
+  isOnline       Boolean        @default(false)
+  lastSeen       DateTime       @default(now())
+  locale         String         @default("en") @db.VarChar(10)
+  theme          String         @default("dark") @db.VarChar(20)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  googleAccounts GoogleAccount[]
+  sessions       Session[]
+  roomsHosted    Room[]              @relation("RoomHost")
+  participants   RoomParticipant[]
+  messages       Message[]
+  reactions      MessageReaction[]
+  voiceStates    VoiceState[]
+  friends        Friend[]            @relation("UserFriends")
+  friendOf       Friend[]            @relation("FriendUsers")
+  followers      Follow[]            @relation("FollowerRelation")
+  following      Follow[]            @relation("FollowingRelation")
+  communities    Community[]
+  communityMembers CommunityMember[]
+  musicTracks    MusicTrack[]
+  notifications  Notification[]
+  adminProfile   Admin?
+  uploads        Upload[]
+
+  @@index([username])
+  @@index([email])
+  @@map("users")
+}
+
+model GoogleAccount {
+  id            String @id @default(uuid()) @db.Uuid
+  userId        String @db.Uuid
+  googleId      String @unique @db.VarChar(255)
+  email         String @db.VarChar(255)
+  displayName   String @db.VarChar(100)
+  avatar        String @default("")
+  accessToken   String @db.Text
+  refreshToken  String? @db.Text
+  tokenExpiry   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("google_accounts")
+}
+
+model Session {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  token         String   @unique @db.Text
+  refreshToken  String   @unique @db.Text
+  deviceInfo    String?  @db.Text
+  ipAddress     String?  @db.VarChar(45)
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([refreshToken])
+  @@map("sessions")
+}
+
+model Room {
+  id              String            @id @default(uuid()) @db.Uuid
+  name            String            @db.VarChar(100)
+  description     String            @default("") @db.Text
+  code            String            @unique @db.VarChar(8)
+  type            RoomType          @default(watch)
+  privacy         RoomPrivacy       @default(public)
+  hostId          String            @db.Uuid
+  thumbnail       String            @default("")
+  maxParticipants Int               @default(50)
+  isActive        Boolean           @default(true)
+  tags            String[]          @default([])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  host         User               @relation("RoomHost", fields: [hostId], references: [id])
+  video        RoomVideo?
+  participants RoomParticipant[]
+  channels     Channel[]
+  messages     Message[]
+  musicSession MusicSession?
+
+  @@index([code])
+  @@index([hostId])
+  @@index([type])
+  @@index([privacy])
+  @@index([isActive])
+  @@map("rooms")
+}
+
+model RoomVideo {
+  id           String      @id @default(uuid()) @db.Uuid
+  roomId       String      @unique @db.Uuid
+  title        String      @db.VarChar(255)
+  url          String      @db.Text
+  thumbnail    String      @default("") @db.Text
+  duration     Float       @default(0)
+  currentTime  Float       @default(0)
+  isPlaying    Boolean     @default(false)
+  playbackRate Float       @default(1.0)
+  volume       Float       @default(1.0)
+  source       VideoSource @default(youtube)
+  sourceId     String      @db.VarChar(255)
+  addedById    String      @db.Uuid
+  addedAt      DateTime    @default(now())
+
+  room    Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  addedBy User @relation(fields: [addedById], references: [id])
+
+  @@index([roomId])
+  @@map("room_videos")
+}
+
+model RoomParticipant {
+  id             String          @id @default(uuid()) @db.Uuid
+  roomId         String          @db.Uuid
+  userId         String          @db.Uuid
+  role           ParticipantRole @default(participant)
+  isMuted        Boolean         @default(false)
+  isDeafened     Boolean         @default(false)
+  isSpeaking     Boolean         @default(false)
+  isVideoEnabled Boolean         @default(false)
+  isScreenSharing Boolean        @default(false)
+  joinedAt       DateTime        @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
+  @@index([roomId])
+  @@index([userId])
+  @@map("room_participants")
+}
+
+model Channel {
+  id        String      @id @default(uuid()) @db.Uuid
+  roomId    String      @db.Uuid
+  name      String      @db.VarChar(100)
+  type      ChannelType @default(text)
+  topic     String      @default("") @db.VarChar(200)
+  isVoice   Boolean     @default(false)
+  bitrate   Int         @default(64)
+  userLimit Int         @default(0)
+  position  Int         @default(0)
+  createdAt DateTime    @default(now())
+
+  room      Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  voiceStates VoiceState[]
+
+  @@index([roomId])
+  @@map("channels")
+}
+
+model Message {
+  id        String      @id @default(uuid()) @db.Uuid
+  roomId    String      @db.Uuid
+  channelId String      @db.Uuid
+  senderId  String      @db.Uuid
+  type      MessageType @default(text)
+  content   String      @db.Text
+  replyTo   String?     @db.Uuid
+  isEdited  Boolean     @default(false)
+  isDeleted Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  room         Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  channel      Channel          @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  sender       User             @relation(fields: [senderId], references: [id])
+  replyMessage Message?         @relation("MessageReply", fields: [replyTo], references: [id])
+  replies      Message[]        @relation("MessageReply")
+  attachments  Attachment[]
+  reactions    MessageReaction[]
+
+  @@index([roomId])
+  @@index([channelId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model Attachment {
+  id       String         @id @default(uuid()) @db.Uuid
+  messageId String        @db.Uuid
+  type     AttachmentType
+  url      String         @db.Text
+  name     String         @db.VarChar(255)
+  size     Int
+  mimeType String         @db.VarChar(100)
+  width    Int?
+  height   Int?
+  duration Float?
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("attachments")
+}
+
+enum AttachmentType {
+  image
+  video
+  audio
+  file
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid()) @db.Uuid
+  messageId String   @db.Uuid
+  userId    String   @db.Uuid
+  emoji     String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@map("message_reactions")
+}
+
+model VoiceState {
+  id             String  @id @default(uuid()) @db.Uuid
+  userId         String  @db.Uuid
+  channelId      String  @db.Uuid
+  roomId         String  @db.Uuid
+  isMuted        Boolean @default(false)
+  isDeafened     Boolean @default(false)
+  isSpeaking     Boolean @default(false)
+  isVideoEnabled Boolean @default(false)
+  isScreenSharing Boolean @default(false)
+  ssrc           Int?
+
+  user    User    @relation(fields: [userId], references: [id])
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  room    Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channelId])
+  @@index([channelId])
+  @@map("voice_states")
+}
+
+model Friend {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @db.Uuid
+  friendId  String       @db.Uuid
+  status    FriendStatus @default(pending)
+  createdAt DateTime     @default(now())
+
+  user   User @relation("UserFriends", fields: [userId], references: [id])
+  friend User @relation("FriendUsers", fields: [friendId], references: [id])
+
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@index([friendId])
+  @@map("friends")
+}
+
+model Follow {
+  id          String   @id @default(uuid()) @db.Uuid
+  followerId  String   @db.Uuid
+  followingId String   @db.Uuid
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("FollowerRelation", fields: [followerId], references: [id])
+  following User @relation("FollowingRelation", fields: [followingId], references: [id])
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model Community {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String            @db.VarChar(100)
+  description String            @default("") @db.Text
+  avatar      String            @default("")
+  banner      String            @default("")
+  ownerId     String            @db.Uuid
+  type        String            @default("public") @db.VarChar(20)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  owner   User               @relation(fields: [ownerId], references: [id])
+  members CommunityMember[]
+
+  @@index([ownerId])
+  @@index([type])
+  @@map("communities")
+}
+
+model CommunityMember {
+  id          String   @id @default(uuid()) @db.Uuid
+  communityId String   @db.Uuid
+  userId      String   @db.Uuid
+  role        String   @default("member") @db.VarChar(20)
+  joinedAt    DateTime @default(now())
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([communityId, userId])
+  @@index([communityId])
+  @@index([userId])
+  @@map("community_members")
+}
+
+model MusicSession {
+  id          String   @id @default(uuid()) @db.Uuid
+  roomId      String   @unique @db.Uuid
+  name        String   @db.VarChar(100)
+  isPlaying   Boolean  @default(false)
+  currentTime Float    @default(0)
+  djId        String   @db.Uuid
+  mode        String   @default("collaborative") @db.VarChar(20)
+  createdAt   DateTime @default(now())
+
+  room   Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  tracks MusicTrack[]
+
+  @@index([roomId])
+  @@map("music_sessions")
+}
+
+model MusicTrack {
+  id          String   @id @default(uuid()) @db.Uuid
+  sessionId   String   @db.Uuid
+  title       String   @db.VarChar(255)
+  artist      String   @db.VarChar(255)
+  album       String   @default("") @db.VarChar(255)
+  duration    Float
+  url         String   @db.Text
+  thumbnail   String   @default("") @db.Text
+  source      String   @default("") @db.VarChar(50)
+  addedById   String   @db.Uuid
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  session MusicSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  addedBy User         @relation(fields: [addedById], references: [id])
+
+  @@index([sessionId])
+  @@map("music_tracks")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  body      String           @db.Text
+  data      Json             @default("{}")
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model Admin {
+  id          String     @id @default(uuid()) @db.Uuid
+  userId      String     @unique @db.Uuid
+  role        AdminRole  @default(moderator)
+  permissions String[]   @default([])
+  createdAt   DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([role])
+  @@map("admins")
+}
+
+model Upload {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  filename    String   @db.VarChar(255)
+  originalName String  @db.VarChar(255)
+  mimeType    String   @db.VarChar(100)
+  size        Int
+  url         String   @db.Text
+  thumbnail   String?  @db.Text
+  duration    Float?
+  width       Int?
+  height      Int?
+  status      String   @default("processing") @db.VarChar(20)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("uploads")
+}
+
+model Report {
+  id          String   @id @default(uuid()) @db.Uuid
+  reporterId  String   @db.Uuid
+  targetId    String   @db.Uuid
+  targetType  String   @db.VarChar(20)
+  reason      String   @db.Text
+  category    String   @db.VarChar(20)
+  status      String   @default("pending") @db.VarChar(20)
+  resolvedBy  String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+
+  @@index([status])
+  @@index([targetId])
+  @@map("reports")
+}

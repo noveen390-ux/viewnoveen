@@ -1,0 +1,123 @@
+version: '3.8'
+
+x-common: &common
+  restart: unless-stopped
+  networks:
+    - viewnoveen
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  postgres:
+    <<: *common
+    image: postgres:16-alpine
+    container_name: viewnoveen-postgres
+    environment:
+      POSTGRES_DB: viewnoveen
+      POSTGRES_USER: viewnoveen
+      POSTGRES_PASSWORD: viewnoveen
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U viewnoveen"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    <<: *common
+    image: redis:7-alpine
+    container_name: viewnoveen-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    <<: *common
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+    container_name: viewnoveen-api
+    ports:
+      - "4000:4000"
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  web:
+    <<: *common
+    build:
+      context: .
+      dockerfile: infrastructure/docker/web.Dockerfile
+    container_name: viewnoveen-web
+    ports:
+      - "3000:3000"
+    env_file: .env
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  nginx:
+    <<: *common
+    image: nginx:alpine
+    container_name: viewnoveen-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./infrastructure/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - api
+      - web
+
+  # FFmpeg transcoding service
+  transcoder:
+    <<: *common
+    image: jrottenberg/ffmpeg:6-alpine
+    container_name: viewnoveen-transcoder
+    volumes:
+      - uploads:/data/uploads
+      - ./infrastructure/transcoder:/scripts
+    entrypoint: ["/bin/sh", "-c", "tail -f /dev/null"]
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  uploads:
+    driver: local
+
+networks:
+  viewnoveen:
+    driver: bridge

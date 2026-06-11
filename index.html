@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ViewNoveen - Watch Party</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0a0f;--surface:#16162a;--surface2:#1e1e32;--border:#2a2a3a;--primary:#5865F2;--primary-hover:#4752c4;--green:#3ba55c;--red:#ed4245;--text:#fff;--text2:#9b9ba8;--text3:#5c5c6e;--radius:8px;--font:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
+input,button{font-family:inherit;font-size:14px}
+.hidden{display:none!important}
+.fade{animation:fade .3s}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Landing */
+#landing{
+  display:flex;align-items:center;justify-content:center;min-height:100vh;
+  padding:20px;background:radial-gradient(ellipse at 50% 0%,#1a1a3a 0%,#0a0a0f 60%)
+}
+.landing-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:40px 32px;width:100%;max-width:460px;text-align:center;animation:fade .5s
+}
+.landing-card h1{
+  font-size:32px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px;
+  background:linear-gradient(135deg,#5865F2,#9b59b6);-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;background-clip:text
+}
+.landing-card .tagline{color:var(--text2);font-size:15px;margin-bottom:28px}
+.landing-forms{display:flex;flex-direction:column;gap:20px}
+.landing-forms .section{padding:16px;background:var(--surface2);border-radius:var(--radius);text-align:left}
+.landing-forms .section h3{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.landing-forms input{
+  width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--bg);color:var(--text);outline:none;transition:border .2s;margin-bottom:8px
+}
+.landing-forms input:focus{border-color:var(--primary)}
+.btn{
+  width:100%;padding:10px 16px;border:none;border-radius:var(--radius);
+  background:var(--primary);color:#fff;font-weight:600;cursor:pointer;transition:background .2s
+}
+.btn:hover{background:var(--primary-hover)}
+.btn-danger{background:var(--red)}
+.btn-danger:hover{background:#d03b3e}
+
+/* Toast */
+#toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px 20px;font-size:14px;z-index:999;opacity:0;transition:opacity .3s;
+  pointer-events:none;white-space:nowrap
+}
+#toast.show{opacity:1}
+
+/* Room */
+#room{display:flex;flex-direction:column;height:100vh}
+.room-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);
+  flex-shrink:0;gap:12px;flex-wrap:wrap
+}
+.room-header .info{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.room-header .info .code{font-size:15px;font-weight:600;cursor:pointer;user-select:none}
+.room-header .info .code:hover{color:var(--primary)}
+.room-header .info .badge{
+  font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);
+  display:flex;align-items:center;gap:4px
+}
+.room-header .info .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
+.room-header .actions{display:flex;gap:8px}
+.room-header .actions .btn{width:auto;padding:6px 14px;font-size:13px}
+
+/* Content */
+.room-content{display:flex;flex:1;min-height:0}
+
+/* Video */
+.video-section{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:#000;position:relative;min-width:0
+}
+.video-section video{width:100%;height:100%;object-fit:contain;max-height:100%}
+.video-section .center-msg{
+  color:var(--text2);font-size:16px;text-align:center;padding:40px
+}
+.video-section .center-msg .icon{font-size:48px;margin-bottom:12px}
+
+/* Upload */
+.upload-area{
+  text-align:center;padding:40px;cursor:pointer
+}
+.upload-area .box{
+  border:2px dashed var(--border);border-radius:12px;padding:40px 20px;
+  transition:border .2s;cursor:pointer
+}
+.upload-area .box:hover{border-color:var(--primary)}
+.upload-area .box .icon{font-size:40px;margin-bottom:12px}
+.upload-area .box p{color:var(--text2);font-size:14px;margin-top:8px}
+.upload-area input{display:none}
+
+/* Controls */
+.controls{
+  position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(transparent,rgba(0,0,0,.85));
+  padding:40px 16px 12px;display:flex;align-items:center;gap:10px;
+  opacity:0;transition:opacity .3s;z-index:10
+}
+.video-section:hover .controls,.controls.show{opacity:1}
+.controls button{
+  background:none;border:none;color:#fff;font-size:22px;cursor:pointer;
+  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  border-radius:50%;transition:background .2s;flex-shrink:0
+}
+.controls button:hover{background:rgba(255,255,255,.1)}
+.controls input[type=range]{
+  flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;
+  background:rgba(255,255,255,.3);outline:none;cursor:pointer;min-width:0
+}
+.controls input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--primary);border:2px solid #fff;cursor:pointer
+}
+.controls input[type=range]::-moz-range-thumb{
+  width:14px;height:14px;border-radius:50%;background:var(--primary);
+  border:2px solid #fff;cursor:pointer
+}
+.controls .time{font-size:13px;color:rgba(255,255,255,.8);white-space:nowrap;font-variant-numeric:tabular-nums}
+.controls .live-badge{
+  font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;
+  letter-spacing:1px;display:flex;align-items:center;gap:4px;flex-shrink:0
+}
+.controls .live-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--red);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Chat */
+.chat-section{
+  width:320px;flex-shrink:0;display:flex;flex-direction:column;
+  background:var(--surface);border-left:1px solid var(--border)
+}
+.chat-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0
+}
+.chat-header h3{font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)}
+.chat-header button{
+  background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;
+  width:28px;height:28px;border-radius:6px;display:none;align-items:center;justify-content:center
+}
+.chat-header button:hover{background:var(--surface2)}
+.chat-msgs{
+  flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px
+}
+.chat-msgs .msg{font-size:13px;line-height:1.4;animation:fade .2s}
+.chat-msgs .msg .name{font-weight:600;margin-right:6px}
+.chat-msgs .msg .text{color:var(--text)}
+.chat-msgs .msg .time{
+  font-size:11px;color:var(--text3);margin-left:6px;float:right
+}
+.chat-msgs .sys{font-size:12px;color:var(--text3);text-align:center;padding:4px 0}
+.chat-input{
+  display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0
+}
+.chat-input input{
+  flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--bg);color:var(--text);outline:none;transition:border .2s;min-width:0
+}
+.chat-input input:focus{border-color:var(--primary)}
+.chat-input button{
+  padding:8px 16px;border:none;border-radius:var(--radius);
+  background:var(--primary);color:#fff;font-weight:600;cursor:pointer;transition:background .2s;flex-shrink:0
+}
+.chat-input button:hover{background:var(--primary-hover)}
+
+/* Scroll */
+.chat-msgs::-webkit-scrollbar,.video-section::-webkit-scrollbar{width:6px}
+.chat-msgs::-webkit-scrollbar-track,.video-section::-webkit-scrollbar-track{background:transparent}
+.chat-msgs::-webkit-scrollbar-thumb,.video-section::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* Mobile */
+@media(max-width:768px){
+  .landing-card{padding:24px 20px}
+  .room-header{padding:8px 12px}
+  .room-header .info .code{font-size:13px}
+  .room-content{flex-direction:column}
+  .chat-section{width:100%;max-height:40vh;border-left:none;border-top:1px solid var(--border)}
+  .chat-header button{display:flex}
+  .chat-section.collapsed .chat-msgs,.chat-section.collapsed .chat-input{display:none}
+  .controls{padding-top:56px;opacity:1}
+  .controls button{font-size:20px;width:32px;height:32px}
+  .controls .time{font-size:12px}
+}
+@media(max-width:480px){
+  .landing-card h1{font-size:26px}
+  .room-header .info .badge{font-size:11px;padding:2px 8px}
+  .chat-msgs{padding:8px 12px}
+  .chat-input{padding:8px 12px}
+}
+</style>
+</head>
+<body>
+
+<!-- Landing -->
+<div id="landing">
+  <div class="landing-card">
+    <h1>ViewNoveen</h1>
+    <p class="tagline">Watch parties, together.</p>
+    <div class="landing-forms">
+      <div class="section">
+        <h3>Host a Room</h3>
+        <input type="text" id="hostName" placeholder="Your name" value="Host" maxlength="30">
+        <button class="btn" onclick="createRoom()">Create Room</button>
+      </div>
+      <div class="section">
+        <h3>Join a Room</h3>
+        <input type="text" id="joinName" placeholder="Your name" maxlength="30">
+        <input type="text" id="roomCode" placeholder="Room code" maxlength="8" style="text-transform:uppercase;letter-spacing:2px">
+        <button class="btn" onclick="joinRoom()">Join Room</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Room -->
+<div id="room" class="hidden">
+  <div class="room-header">
+    <div class="info">
+      <span class="code" id="codeDisplay" onclick="copyCode()" title="Click to copy room code">------</span>
+      <span class="badge"><span class="dot"></span> <span id="viewerCount">0</span> watching</span>
+    </div>
+    <div class="actions">
+      <button class="btn" style="width:auto;padding:6px 14px;font-size:13px" onclick="copyCode()">Copy Link</button>
+      <button class="btn btn-danger" style="width:auto;padding:6px 14px;font-size:13px" onclick="leaveRoom()">Leave</button>
+    </div>
+  </div>
+  <div class="room-content">
+    <div class="video-section" id="videoSection">
+      <!-- Upload Area (host only) -->
+      <div id="uploadArea" class="hidden upload-area" onclick="document.getElementById('fileInput').click()">
+        <div class="box">
+          <div class="icon">&#x1f3ac;</div>
+          <p><strong>Click to upload a video</strong></p>
+          <p id="uploadStatus">MP4, MKV, WebM, MOV &bull; Max 500MB</p>
+        </div>
+        <input type="file" id="fileInput" accept="video/mp4,video/webm,video/x-matroska,video/quicktime,video/*">
+      </div>
+      <!-- Player -->
+      <div id="playerArea" class="hidden" style="width:100%;height:100%;position:relative">
+        <video id="video" playsinline></video>
+        <!-- Waiting overlay (viewers) -->
+        <div id="waitOverlay" class="hidden center-msg" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.7);z-index:5">
+          <div class="icon">&#x23f3;</div>
+          <p>Waiting for host to share a video...</p>
+        </div>
+        <!-- Controls -->
+        <div class="controls" id="controls">
+          <button id="playBtn" onclick="togglePlay()">&#9654;</button>
+          <input type="range" id="seekbar" min="0" max="1000" value="0" oninput="onSeek()">
+          <span class="time" id="timeDisplay">0:00 / 0:00</span>
+          <span class="live-badge" id="liveBadge"><span class="dot"></span> LIVE</span>
+        </div>
+      </div>
+    </div>
+    <!-- Chat -->
+    <div class="chat-section" id="chatSection">
+      <div class="chat-header">
+        <h3>Chat</h3>
+        <button onclick="toggleChat()" id="chatToggleBtn">&#x2715;</button>
+      </div>
+      <div class="chat-msgs" id="chatMessages"></div>
+      <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="Type a message..." maxlength="500">
+        <button onclick="sendChat()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+// ==================== STATE ====================
+const socket = io();
+let roomCode = null;
+let isHost = false;
+let myName = "Anonymous";
+let videoMeta = null;
+let totalChunks = 0;
+let chunkBuf = [];
+let useFallback = false;
+let ms = null;
+let sb = null;
+let chunkQ = [];
+let appending = false;
+let localSeek = false;
+let ignoreNext = false;
+
+// ==================== DOM ====================
+const $ = (id) => document.getElementById(id);
+const video = $("video");
+const seekbar = $("seekbar");
+const timeDisplay = $("timeDisplay");
+const playBtn = $("playBtn");
+const liveBadge = $("liveBadge");
+
+// ==================== ROOMS ====================
+function createRoom() {
+  myName = $("hostName").value.trim() || "Host";
+  socket.emit("create", (res) => {
+    roomCode = res.code;
+    isHost = true;
+    enterRoom();
+  });
+}
+
+function joinRoom() {
+  const code = $("roomCode").value.trim().toUpperCase();
+  const name = $("joinName").value.trim() || "Anonymous";
+  if (!code) return toast("Enter a room code");
+  myName = name;
+  socket.emit("join", { c: code, n: name }, (res) => {
+    if (res.err) return toast(res.err);
+    roomCode = code;
+    isHost = false;
+    enterRoom();
+  });
+}
+
+function enterRoom() {
+  $("landing").classList.add("hidden");
+  $("room").classList.remove("hidden");
+  $("codeDisplay").textContent = roomCode;
+  document.title = `ViewNoveen - ${roomCode}`;
+
+  if (isHost) {
+    $("uploadArea").classList.remove("hidden");
+    $("uploadStatus").textContent = "MP4, MKV, WebM, MOV \u2022 Max 500MB";
+    liveBadge.classList.add("hidden");
+  } else {
+    $("waitOverlay").classList.remove("hidden");
+  }
+
+  // Update URL
+  const url = new URL(window.location);
+  url.searchParams.set("join", roomCode);
+  window.history.replaceState({}, "", url);
+
+  // Focus chat
+  $("chatInput").focus();
+}
+
+function leaveRoom() {
+  socket.disconnect();
+  location.reload();
+}
+
+function copyCode() {
+  const url = `${window.location.origin}?join=${roomCode}`;
+  const text = `Join my ViewNoveen watch party!\nRoom code: ${roomCode}\n${url}`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => toast("Room code copied!"));
+  } else {
+    toast(`Room code: ${roomCode}`);
+  }
+}
+
+// ==================== UPLOAD ====================
+$("fileInput").addEventListener("change", function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (file.size > 500 * 1024 * 1024) {
+    toast("File too large. Max 500MB.");
+    return;
+  }
+
+  const CHUNK = 64 * 1024;
+  const total = Math.ceil(file.size / CHUNK);
+  let idx = 0;
+  let off = 0;
+
+  socket.emit("meta", {
+    n: file.name,
+    s: file.size,
+    type: file.type || "video/mp4",
+    t: total,
+  });
+
+  $("uploadStatus").innerHTML = "Uploading... 0%";
+
+  function next() {
+    const slice = file.slice(off, off + CHUNK);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const buf = reader.result;
+      socket.emit("chunk", { i: idx, t: total, d: new Uint8Array(buf).buffer });
+      idx++;
+      off += CHUNK;
+      const pct = Math.min(100, Math.round((idx / total) * 100));
+      $("uploadStatus").innerHTML = `Uploading... ${pct}%`;
+      if (idx < total) {
+        setTimeout(next, 5);
+      } else {
+        $("uploadStatus").innerHTML = "Upload complete!";
+        // Host plays from local file
+        const url = URL.createObjectURL(file);
+        video.src = url;
+        $("uploadArea").classList.add("hidden");
+        $("playerArea").classList.remove("hidden");
+        liveBadge.classList.remove("hidden");
+      }
+    };
+    reader.readAsArrayBuffer(slice);
+  }
+  next();
+});
+
+// ==================== VIDEO PLAYER ====================
+function togglePlay() {
+  if (!isHost || ignoreNext) return;
+  if (video.paused) video.play();
+  else video.pause();
+}
+
+function onSeek() {
+  if (!isHost || ignoreNext) return;
+  localSeek = true;
+  const t = (seekbar.value / 1000) * (video.duration || 1);
+  video.currentTime = t;
+  socket.emit("seek", t);
+  setTimeout(() => (localSeek = false), 100);
+}
+
+video.addEventListener("timeupdate", () => {
+  if (!video.duration) return;
+  if (!localSeek) {
+    seekbar.value = (video.currentTime / video.duration) * 1000;
+  }
+  timeDisplay.textContent = `${fmtTime(video.currentTime)} / ${fmtTime(video.duration)}`;
+});
+
+video.addEventListener("play", () => {
+  playBtn.innerHTML = "\u23F8";
+  if (isHost && !ignoreNext) socket.emit("play", video.currentTime);
+});
+
+video.addEventListener("pause", () => {
+  playBtn.innerHTML = "\u25B6";
+  if (isHost && !ignoreNext) socket.emit("pause", video.currentTime);
+});
+
+video.addEventListener("seeked", () => {
+  if (isHost && !localSeek && !ignoreNext) socket.emit("seek", video.currentTime);
+});
+
+video.addEventListener("loadedmetadata", () => {
+  seekbar.max = 1000;
+});
+
+function fmtTime(s) {
+  if (!s || isNaN(s)) return "0:00";
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
+// ==================== SOCKET EVENTS ====================
+socket.on("meta", (m) => {
+  videoMeta = m;
+  totalChunks = m.t;
+  chunkBuf = new Array(m.t);
+  useFallback = false;
+  ms = null;
+  sb = null;
+  chunkQ = [];
+  appending = false;
+
+  // Try MediaSource
+  const mime = m.type || "video/mp4";
+  if (window.MediaSource && MediaSource.isTypeSupported(mime)) {
+    setupMediaSource(mime);
+  } else {
+    useFallback = true;
+  }
+});
+
+socket.on("chunk", (d) => {
+  const buf = new Uint8Array(d.d);
+  chunkBuf[d.i] = buf;
+
+  if (useFallback) {
+    if (chunkBuf.filter(Boolean).length === totalChunks) {
+      finalizeBlob();
+    }
+    return;
+  }
+
+  chunkQ.push(buf);
+  processQ();
+});
+
+socket.on("play", (t) => {
+  ignoreNext = true;
+  video.currentTime = t;
+  video.play().catch(() => {});
+  setTimeout(() => (ignoreNext = false), 200);
+});
+
+socket.on("pause", (t) => {
+  ignoreNext = true;
+  video.currentTime = t;
+  video.pause();
+  setTimeout(() => (ignoreNext = false), 200);
+});
+
+socket.on("seek", (t) => {
+  ignoreNext = true;
+  video.currentTime = t;
+  setTimeout(() => (ignoreNext = false), 200);
+});
+
+socket.on("state", (s) => {
+  if (s.p) {
+    video.currentTime = s.t;
+    video.play().catch(() => {});
+  } else {
+    video.currentTime = s.t;
+    video.pause();
+  }
+});
+
+socket.on("count", (n) => {
+  $("viewerCount").textContent = n;
+});
+
+socket.on("chat", ({ n, m, id }) => {
+  addChatMsg(n, m);
+});
+
+socket.on("end", () => {
+  toast("Host left. Room closed.");
+  setTimeout(() => location.reload(), 2000);
+});
+
+// ==================== MEDIASOURCE ====================
+function setupMediaSource(mime) {
+  ms = new MediaSource();
+  video.src = URL.createObjectURL(ms);
+
+  ms.addEventListener("sourceopen", () => {
+    try {
+      sb = ms.addSourceBuffer(mime);
+    } catch (e) {
+      useFallback = true;
+      URL.revokeObjectURL(video.src);
+      video.src = "";
+      chunkQ = [];
+      // If chunks already received, switch to blob
+      if (chunkBuf.filter(Boolean).length > 0) {
+        finalizeBlob();
+      }
+      return;
+    }
+
+    sb.addEventListener("updateend", () => {
+      appending = false;
+      processQ();
+    });
+
+    // Process any queued chunks
+    processQ();
+  });
+
+  ms.addEventListener("sourceended", () => {
+    showPlayer();
+  });
+}
+
+function processQ() {
+  if (appending || !sb || chunkQ.length === 0) return;
+  appending = true;
+  const chunk = chunkQ.shift();
+  try {
+    sb.appendBuffer(chunk);
+  } catch (e) {
+    appending = false;
+    processQ();
+  }
+
+  // Check if we have all chunks
+  const received = chunkBuf.filter(Boolean).length;
+  if (received === totalChunks && ms && ms.readyState === "open") {
+    try {
+      ms.endOfStream();
+    } catch (e) {}
+    showPlayer();
+  }
+}
+
+function finalizeBlob() {
+  const blobs = [];
+  let totalSize = 0;
+  for (let i = 0; i < totalChunks; i++) {
+    if (chunkBuf[i]) {
+      blobs.push(chunkBuf[i]);
+      totalSize += chunkBuf[i].length;
+    }
+  }
+  if (blobs.length === 0) return;
+  const blob = new Blob(blobs, { type: videoMeta.type || "video/mp4" });
+  const url = URL.createObjectURL(blob);
+  video.src = url;
+  showPlayer();
+}
+
+function showPlayer() {
+  $("playerArea").classList.remove("hidden");
+  $("waitOverlay").classList.add("hidden");
+  $("uploadArea").classList.add("hidden");
+  liveBadge.classList.remove("hidden");
+}
+
+// ==================== CHAT ====================
+function sendChat() {
+  const input = $("chatInput");
+  const msg = input.value.trim();
+  if (!msg) return;
+  socket.emit("chat", { n: myName, m: msg });
+  input.value = "";
+  input.focus();
+}
+
+function addChatMsg(name, msg) {
+  const el = document.createElement("div");
+  el.className = "msg";
+  const t = new Date();
+  el.innerHTML =
+    `<span class="name" style="color:${nameColor(name)}">${esc(name)}</span>` +
+    `<span class="text">${esc(msg)}</span>` +
+    `<span class="time">${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}</span>`;
+  $("chatMessages").appendChild(el);
+  $("chatMessages").scrollTop = $("chatMessages").scrollHeight;
+}
+
+function nameColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  const hue = ((h % 360) + 360) % 360;
+  return `hsl(${hue},65%,65%)`;
+}
+
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+document.getElementById("chatInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendChat();
+});
+
+// ==================== UI ====================
+function toggleChat() {
+  const cs = $("chatSection");
+  cs.classList.toggle("collapsed");
+  $("chatToggleBtn").textContent = cs.classList.contains("collapsed") ? "\u25B2" : "\u2715";
+}
+
+function toast(msg) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), 3000);
+}
+
+// Auto-join from URL
+window.addEventListener("DOMContentLoaded", () => {
+  const p = new URLSearchParams(window.location.search);
+  const c = p.get("join");
+  if (c) {
+    $("roomCode").value = c.toUpperCase();
+    $("joinName").value = "Viewer";
+    setTimeout(joinRoom, 300);
+  }
+});
+</script>
+</body>
+</html>
