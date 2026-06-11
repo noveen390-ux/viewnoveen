@@ -121,6 +121,30 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("reclaim-host", (code, cb) => {
+    const room = rooms[code];
+    if (room) {
+      // Remove old host entry if exists
+      if (room.host) delete room.users[room.host];
+      room.host = socket.id;
+      socket.data.room = code;
+      socket.join(code);
+      room.users[socket.id] = { n: "Host" };
+      cb({ ok: true, state: room.state, hasMeta: !!room.meta, total: room.total });
+      io.to(code).emit("count", Object.keys(room.users).length);
+    } else {
+      cb({ err: "Room not found." });
+    }
+  });
+
+  socket.on("sync-state", ({ t, p }) => {
+    const room = rooms[socket.data.room];
+    if (room && room.host === socket.id) {
+      room.state = { p, t };
+      socket.to(socket.data.room).emit("sync-state", { t, p });
+    }
+  });
+
   socket.on("disconnect", () => {
     const code = socket.data.room;
     const room = rooms[code];
