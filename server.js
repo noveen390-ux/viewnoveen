@@ -1,5 +1,7 @@
 const express = require("express");
-const { createServer } = require("http");
+const http = require("http");
+const https = require("https");
+const { createServer } = http;
 const { Server } = require("socket.io");
 const crypto = require("crypto");
 const path = require("path");
@@ -128,4 +130,15 @@ io.on("connection", (socket) => {
 server.listen(PORT, () => {
   console.log(`ViewNoveen running on http://0.0.0.0:${PORT}`);
 });
+
+// Self-ping every 4 minutes to prevent Railway cold starts
+const SELF_URL = process.env.RAILWAY_PRIVATE_URL || process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`;
+const agent = SELF_URL.startsWith("https") ? https : http;
+setInterval(() => {
+  agent.get(SELF_URL, (res) => {
+    console.log(`Self-ping: ${res.statusCode}`);
+  }).on("error", (err) => {
+    console.error(`Self-ping failed: ${err.message}`);
+  });
+}, 4 * 60 * 1000);
 
