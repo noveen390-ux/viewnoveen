@@ -84,7 +84,7 @@ io.on("connection", (socket) => {
 
   socket.on("play", (t) => {
     const room = rooms[socket.data.room];
-    if (room) {
+    if (room && room.host === socket.id) {
       room.state = { p: true, t };
       socket.to(socket.data.room).emit("play", t);
     }
@@ -92,7 +92,7 @@ io.on("connection", (socket) => {
 
   socket.on("pause", (t) => {
     const room = rooms[socket.data.room];
-    if (room) {
+    if (room && room.host === socket.id) {
       room.state = { p: false, t };
       socket.to(socket.data.room).emit("pause", t);
     }
@@ -100,7 +100,7 @@ io.on("connection", (socket) => {
 
   socket.on("seek", (t) => {
     const room = rooms[socket.data.room];
-    if (room) {
+    if (room && room.host === socket.id) {
       room.state = { ...room.state, t };
       socket.to(socket.data.room).emit("seek", t);
     }
