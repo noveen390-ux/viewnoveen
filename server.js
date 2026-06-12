@@ -147,56 +147,39 @@ rooms = loadRooms();
 
 app.use(express.static(__dirname));
 
-// Resolve a URL: follow redirects and return final metadata (HEAD-based, no body)
-app.get("/resolve", async (req, res) => {
-  const url = req.query.url;
-  if (!url) return res.status(400).json({ error: "Missing url" });
-  try {
-    const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
-    let current = url;
-    let lastRes = null;
-    for (let i = 0; i < 20; i++) {
-      const r = await fetch(current, { method: "HEAD", redirect: "manual", headers });
-      if ([301, 302, 303, 307, 308].includes(r.status)) {
-        const loc = r.headers.get("location");
-        if (!loc) { lastRes = r; break; }
-        current = new URL(loc, current).href;
-        continue;
-      }
-      lastRes = r;
-      break;
-    }
-    if (!lastRes) return res.status(502).json({ error: "Redirect chain broken" });
-    const ct = lastRes.headers.get("content-type") || "";
-    const isHls = ct.includes("mpegurl") || ct.includes("mpegURL") || current.toLowerCase().includes(".m3u8");
-    res.json({
-      url: current,
-      status: lastRes.status,
-      contentType: ct,
-      contentLength: lastRes.headers.get("content-length") || "0",
-      isHls,
-    });
-  } catch (e) {
-    res.status(502).json({ error: e.message });
-  }
-});
-
 // Proxy endpoint for Stremio extract URLs that don't work directly in the browser
+//   /proxy?url=...           → streams the video content (single GET with auto redirect)
+//   /proxy?check=1&url=...   → returns JSON metadata (HEAD-based, no body download)
 app.get("/proxy", async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).end("Missing url");
   try {
     const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
+
+    // === CHECK MODE: HEAD + manual redirects, returns JSON ===
+    if (req.query.check === "1") {
+      let current = url;
+      let lastRes = null;
+      for (let i = 0; i < 20; i++) {
+        const r = await fetch(current, { method: "HEAD", redirect: "manual", headers });
+        const loc = [301, 302, 303, 307, 308].includes(r.status) ? r.headers.get("location") : null;
+        if (loc) { current = new URL(loc, current).href; continue; }
+        lastRes = r;
+        break;
+      }
+      if (!lastRes) return res.json({ error: "Redirect chain broken" });
+      const ct = lastRes.headers.get("content-type") || "";
+      const isHls = ct.includes("mpegurl") || ct.includes("mpegURL") || current.toLowerCase().includes(".m3u8");
+      console.log(`[proxy/check] final: ${current}  status: ${lastRes.status}  type: ${ct}  hls: ${isHls}`);
+      return res.json({ url: current, status: lastRes.status, contentType: ct, isHls });
+    }
+
+    // === STREAM MODE: single GET with auto redirect, streams the body ===
     if (req.headers.range) headers["Range"] = req.headers.range;
     const upstream = await fetch(url, { redirect: "follow", headers });
-    const ct = upstream.headers.get("content-type") || "";
-    const finalUrl = upstream.url;
-    console.log(`[proxy] req: ${url}`);
-    if (finalUrl !== url) console.log(`[proxy] final: ${finalUrl}`);
-    console.log(`[proxy] status: ${upstream.status}  type: ${ct}  length: ${upstream.headers.get("content-length") || "?"}`);
+    console.log(`[proxy/stream] req: ${url}  final: ${upstream.url}  status: ${upstream.status}  type: ${upstream.headers.get("content-type") || ""}`);
     ["content-type", "content-length", "content-range", "accept-ranges"].forEach(h => {
-      const v = upstream.headers.get(h);
-      if (v) res.setHeader(h, v);
+      if (upstream.headers.get(h)) res.setHeader(h, upstream.headers.get(h));
     });
     res.status(upstream.status);
     if (upstream.body) {

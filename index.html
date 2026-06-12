@@ -1216,9 +1216,9 @@ function playStremioLink() {
 
   // Resolve via the server to determine stream type
   toast("Resolving stream URL...");
-  fetch("/resolve?url=" + encodeURIComponent(val)).then(function(r) { return r.json(); }).then(function(info) {
-    console.log("[resolve] final:", info.url, "status:", info.status, "type:", info.contentType, "hls:", info.isHls);
-    if (info.status !== 200) return toast("Stream unavailable (HTTP " + info.status + ")");
+  fetch("/proxy?check=1&url=" + encodeURIComponent(val)).then(function(r) { return r.json(); }).then(function(info) {
+    if (info.error) return toast("Stream check failed: " + info.error);
+    console.log("[proxy/check] final:", info.url, "status:", info.status, "type:", info.contentType, "hls:", info.isHls);
     if (info.isHls && window.Hls && window.Hls.isSupported()) {
       toast("Loading HLS stream...");
       var proxyUrl = "/proxy?url=" + encodeURIComponent(val);
@@ -1242,7 +1242,7 @@ function playStremioLink() {
       startDirect("/proxy?url=" + encodeURIComponent(val));
     }
   }).catch(function(err) {
-    console.error("[resolve] error:", err);
+    console.error("[proxy/check] error:", err);
     toast("Could not resolve stream: " + err.message);
   });
 }
