@@ -299,89 +299,169 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("proxy-start", async (url, cb) => {
+  socket.on("proxy-resolve", async (url, opts, cb) => {
     if (!url) return cb({ error: "Missing url" });
+    if (typeof opts === "function") { cb = opts; opts = {}; }
     try {
       const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
-      let current = url;
-      let lastRes = null;
-      for (let i = 0; i < 20; i++) {
-        const r = await fetch(current, { method: "HEAD", redirect: "manual", headers });
-        const loc = [301, 302, 303, 307, 308].includes(r.status) ? r.headers.get("location") : null;
-        if (loc) { current = new URL(loc, current).href; continue; }
-        lastRes = r;
-        break;
-      }
-      if (!lastRes) return cb({ error: "Redirect chain broken" });
-      const ct = lastRes.headers.get("content-type") || "";
-      const isHls = ct.includes("mpegurl") || ct.includes("mpegURL") || current.toLowerCase().includes(".m3u8");
-      console.log(`[proxy-start] final: ${current}  status: ${lastRes.status}  type: ${ct}  hls: ${isHls}`);
+      if (opts.referer) headers["Referer"] = opts.referer;
+      else try { headers["Referer"] = new URL(url).origin + "/"; } catch (e) {}
+      try { headers["Origin"] = new URL(url).origin; } catch (e) {}
+      if (opts.customHeaders) Object.assign(headers, opts.customHeaders);
 
-      let playlist = null;
+      // Use GET with Range:0-0 for reliable header detection (more robust than HEAD)
+      let useRange = true;
+      let response = await fetch(url, { redirect: "follow", headers: { ...headers, Range: "bytes=0-0" } });
+      if (response.status === 200) {
+        // Server ignored Range; retry without it for proper status/headers
+        response = await fetch(url, { redirect: "follow", headers });
+        useRange = false;
+      }
+
+      const ct = response.headers.get("content-type") || "";
+      const cl = response.headers.get("content-length");
+      const clTotal = useRange ? response.headers.get("content-range") : null;
+      const contentLength = clTotal ? parseInt(clTotal.split("/")[1]) : (cl ? parseInt(cl) : null);
+      const acceptRanges = response.headers.get("accept-ranges");
+      const finalUrl = response.url;
+      const isHls = ct.includes("mpegurl") || ct.includes("mpegURL") || finalUrl.toLowerCase().includes(".m3u8");
+      const isDash = ct.includes("dash+xml") || ct.includes("mpd") || finalUrl.toLowerCase().includes(".mpd");
+
+      // Read magic bytes only when safe (Range accepted → body is just 1 byte)
+      let magic = null;
+      if (useRange && response.body) {
+        const reader = response.body.getReader();
+        const first = await reader.read();
+        if (first.value && first.value.length > 0) {
+          magic = Array.from(new Uint8Array(first.value));
+        }
+        reader.releaseLock();
+      }
+
+      console.log(`[proxy-resolve] final: ${finalUrl}  status: ${response.status}  type: ${ct}  len: ${contentLength}  hls: ${isHls}  dash: ${isDash}  range: ${useRange}`);
+
+      const info = { url: finalUrl, status: response.status, contentType: ct, contentLength, acceptRanges, isHls, isDash, magic, useRange };
+
       if (isHls) {
         try {
-          const pr = await fetch(current, { redirect: "follow", headers });
+          const pr = await fetch(finalUrl, { redirect: "follow", headers: { "User-Agent": headers["User-Agent"], Referer: headers["Referer"] } });
           const raw = await pr.text();
-          const base = current.substring(0, current.lastIndexOf("/") + 1);
-          playlist = raw.split("\n").map(line => {
+          const base = finalUrl.substring(0, finalUrl.lastIndexOf("/") + 1);
+          info.isHlsMaster = raw.includes("#EXT-X-STREAM-INF");
+          info.playlist = raw.split("\n").map(line => {
             if (line.startsWith("#") || line.trim() === "") return line;
             try { new URL(line); return line; } catch (e) { return base + line; }
           }).join("\n");
-        } catch (e) {
-          console.error(`[proxy-start] playlist fetch error: ${e.message}`);
-        }
+        } catch (e) { console.error(`[proxy-resolve] playlist error: ${e.message}`); }
       }
 
-      cb({ url: current, status: lastRes.status, contentType: ct, isHls, playlist });
+      if (isDash) {
+        try {
+          const dr = await fetch(finalUrl, { redirect: "follow", headers: { "User-Agent": headers["User-Agent"], Referer: headers["Referer"] } });
+          const raw = await dr.text();
+          const base = finalUrl.substring(0, finalUrl.lastIndexOf("/") + 1);
+          info.manifest = raw.replace(/(baseURL|media|initialization)="([^"]+)"/gi, (m, attr, val) => {
+            try { new URL(val); return m; } catch (e) { return `${attr}="${base}${val}"`; }
+          });
+        } catch (e) { console.error(`[proxy-resolve] manifest error: ${e.message}`); }
+      }
+
+      cb(info);
     } catch (e) {
-      console.error(`[proxy-start] error: ${e.message}`);
+      console.error(`[proxy-resolve] error: ${e.message}`);
       cb({ error: e.message });
     }
   });
 
-  socket.on("proxy-start-stream", async (url) => {
-    const room = rooms[socket.data.room];
-    if (!room || room.host !== socket.id) return;
-
-    room.proxyChunks = [];
-    room.proxyFetching = true;
-
+  socket.on("proxy-fetch-url", async (url, cb) => {
     try {
       const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
+      try { headers["Referer"] = new URL(url).origin + "/"; } catch (e) {}
       const response = await fetch(url, { redirect: "follow", headers });
-      if (!response.ok || !response.body) throw new Error("Server fetch failed with status " + response.status);
+      const text = await response.text();
+      cb({ content: text, url: response.url, contentType: response.headers.get("content-type") || "" });
+    } catch (e) { cb({ error: e.message }); }
+  });
 
-      let idx = 0;
+  async function startProxyFetch(room, roomCode, url, startByte, opts) {
+    try {
+      const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
+      try { headers["Referer"] = new URL(url).origin + "/"; } catch (e) {}
+      try { headers["Origin"] = new URL(url).origin; } catch (e) {}
+      if (opts && opts.customHeaders) Object.assign(headers, opts.customHeaders);
+
+      if (startByte > 0) headers["Range"] = `bytes=${startByte}-`;
+
+      const response = await fetch(url, { redirect: "follow", headers });
+
+      if (response.status !== 200 && response.status !== 206 && response.status !== 304) {
+        throw new Error("Upstream returned status " + response.status);
+      }
+
+      const metaHeaders = {
+        contentType: response.headers.get("content-type") || "",
+        contentLength: response.headers.get("content-length") ? parseInt(response.headers.get("content-length")) : null,
+        contentRange: response.headers.get("content-range") || null,
+      };
+      io.to(roomCode).emit("proxy-meta", metaHeaders);
+
+      if (!response.body) throw new Error("No response body");
+
       let bufs = [];
       let bufsLen = 0;
       const CHUNK_SIZE = 256 * 1024;
+
       for await (const chunk of response.body) {
+        if (!rooms[roomCode]) break;
         bufs.push(chunk);
         bufsLen += chunk.length;
         if (bufsLen >= CHUNK_SIZE) {
           const combined = Buffer.concat(bufs);
           room.proxyChunks.push(combined);
-          io.to(socket.data.room).emit("proxy-chunk", { d: combined, last: false });
+          io.to(roomCode).emit("proxy-chunk", { d: combined, last: false });
           bufs = [];
           bufsLen = 0;
         }
       }
-      if (bufsLen > 0) {
+
+      if (bufsLen > 0 && rooms[roomCode]) {
         const combined = Buffer.concat(bufs);
         room.proxyChunks.push(combined);
-        io.to(socket.data.room).emit("proxy-chunk", { d: combined, last: false });
+        io.to(roomCode).emit("proxy-chunk", { d: combined, last: false });
       }
 
-      room.proxyFetching = false;
-      room.total = room.proxyChunks.length;
-      io.to(socket.data.room).emit("proxy-end");
-    } catch (e) {
-      console.error(`[proxy-start-stream] error: ${e.message}`);
-      if (room) {
+      if (rooms[roomCode]) {
         room.proxyFetching = false;
-        io.to(socket.data.room).emit("proxy-error", e.message);
+        room.total = room.proxyChunks.length;
+        io.to(roomCode).emit("proxy-end");
+      }
+    } catch (e) {
+      console.error(`[proxy-fetch] error: ${e.message}`);
+      if (rooms[roomCode]) {
+        rooms[roomCode].proxyFetching = false;
+        io.to(roomCode).emit("proxy-error", e.message);
       }
     }
+  }
+
+  socket.on("proxy-play", ({ url, startByte, contentType }) => {
+    const room = rooms[socket.data.room];
+    if (!room || room.host !== socket.id) return;
+    if (contentType && room.meta) room.meta.type = contentType;
+    room.proxyChunks = [];
+    room.proxyFetching = true;
+    room.proxyPos = startByte || 0;
+    startProxyFetch(room, socket.data.room, url, startByte || 0);
+  });
+
+  socket.on("proxy-seek", ({ url, byteOffset }) => {
+    const room = rooms[socket.data.room];
+    if (!room || room.host !== socket.id) return;
+    room.proxyChunks = [];
+    room.proxyFetching = true;
+    room.proxyPos = byteOffset || 0;
+    io.to(socket.data.room).emit("proxy-flush");
+    startProxyFetch(room, socket.data.room, url, byteOffset || 0);
   });
 
   socket.on("chat", ({ n, m }) => {

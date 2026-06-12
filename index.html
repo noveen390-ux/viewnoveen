@@ -475,6 +475,8 @@ input,button{font-family:inherit;font-size:14px}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js">
 </script>
+<script src="https://cdn.jsdelivr.net/npm/dashjs@latest/dist/dash.all.min.js">
+</script>
 <script>
 // ==================== STATE ====================
 const socket = io({
@@ -511,6 +513,7 @@ let vkInterval = null;
 let vkApiLoaded = false;
 let torrentClient = null;
 let torrentObj = null;
+let dashPlayer = null;
 let pendingState = null;
 let intentionalLeave = false;
 
@@ -702,11 +705,11 @@ function reclaimHost() {
         const mime = res.meta.type || "video/mp4";
         if (window.MediaSource && MediaSource.isTypeSupported(mime)) {
           setupMediaSource(mime);
-          socket.emit("proxy-start-stream", res.meta.url);
+          socket.emit("proxy-play", { url: res.meta.url, startByte: 0, contentType: mime });
         } else {
           proxyBuffer = [];
           useFallback = true;
-          socket.emit("proxy-start-stream", res.meta.url);
+          socket.emit("proxy-play", { url: res.meta.url, startByte: 0, contentType: mime });
         }
       } else {
         playerType = "upload";
@@ -879,6 +882,7 @@ function changeVideo() {
   $("torrentStatus").classList.add("hidden");
   if (torrentClient && torrentObj) { torrentObj.destroy(); torrentObj = null; }
   if (window.hlsInstance) { window.hlsInstance.destroy(); window.hlsInstance = null; }
+  if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} dashPlayer = null; }
   $("stremioInput").value = "";
 }
 
@@ -935,6 +939,18 @@ function onSeek() {
     ytPlayer.seekTo(t, true);
   } else if (playerType === "vk" && vkPlayer && vkPlayer.seek) {
     vkPlayer.seek(t);
+  } else if (playerType === "proxy") {
+    // Check if seek is within already-buffered range
+    const buffered = video.buffered;
+    let inBuffer = false;
+    for (let i = 0; i < buffered.length; i++) {
+      if (t >= buffered.start(i) && t <= buffered.end(i)) { inBuffer = true; break; }
+    }
+    if (!inBuffer && videoMeta && videoMeta.contentLength && video.duration > 0) {
+      const byteOffset = Math.floor((t / video.duration) * videoMeta.contentLength);
+      socket.emit("proxy-seek", { url: videoMeta.url, byteOffset });
+    }
+    video.currentTime = t;
   } else {
     video.currentTime = t;
   }
@@ -1240,40 +1256,101 @@ function playStremioLink() {
     return;
   }
 
-  // Resolve via Socket.IO proxy (only channel that works on deployment)
+  // Resolve via Socket.IO proxy
   toast("Resolving stream URL...");
-  socket.emit("proxy-start", val, (info) => {
+  socket.emit("proxy-resolve", val, (info) => {
     if (info.error) return toast("Stream check failed: " + info.error);
-    console.log("[proxy-start] final:", info.url, "status:", info.status, "type:", info.contentType, "hls:", info.isHls);
+    console.log("[proxy-resolve] final:", info.url, "status:", info.status, "type:", info.contentType, "hls:", info.isHls, "dash:", info.isDash, "len:", info.contentLength);
 
-    if (info.isHls && window.Hls && window.Hls.isSupported()) {
-      toast("Loading HLS stream...");
-      video.classList.remove("hidden");
-      $("youtubePlayer").classList.add("hidden");
-      $("vkPlayer").classList.add("hidden");
-      $("playerArea").classList.remove("hidden");
-      $("uploadArea").classList.add("hidden");
-      $("waitOverlay").classList.add("hidden");
-      liveBadge.classList.remove("hidden");
-      $("changeBtn").classList.remove("hidden");
-      if (window.hlsInstance) { window.hlsInstance.destroy(); }
-      var hls = new Hls();
-      window.hlsInstance = hls;
-      // Create Blob URL from server-rewritten playlist (relative → absolute URLs)
-      var blob = new Blob([info.playlist], { type: "application/vnd.apple.mpegurl" });
-      var blobUrl = URL.createObjectURL(blob);
-      hls.loadSource(blobUrl);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, function() { video.play(); });
-      socket.emit("meta", { source: "direct", url: blobUrl, isHls: true });
+    if (info.isHls && info.playlist && window.Hls && window.Hls.isSupported()) {
+      // HLS → handle master or media playlist
+      if (info.isHlsMaster) {
+        // Master playlist: select the highest-bandwidth variant
+        toast("Loading HLS stream (selecting best quality)...");
+        var variantUrl = null;
+        var variantBandwidth = 0;
+        var lines = info.playlist.split("\n");
+        for (var li = 0; li < lines.length; li++) {
+          if (lines[li].startsWith("#EXT-X-STREAM-INF:")) {
+            var bwMatch = lines[li].match(/BANDWIDTH=(\d+)/);
+            var nextLine = lines[li + 1];
+            if (nextLine && !nextLine.startsWith("#") && nextLine.trim()) {
+              var bw = bwMatch ? parseInt(bwMatch[1]) : 0;
+              if (bw >= variantBandwidth) {
+                variantBandwidth = bw;
+                variantUrl = nextLine.trim();
+              }
+            }
+          }
+        }
+        if (variantUrl) {
+          // Fetch the variant playlist via proxy
+          toast("Resolving HLS variant...");
+          socket.emit("proxy-fetch-url", variantUrl, function(variantInfo) {
+            if (variantInfo.error) return toast("HLS variant fetch failed: " + variantInfo.error);
+            var vBlob = new Blob([variantInfo.content], { type: "application/vnd.apple.mpegurl" });
+            var vBlobUrl = URL.createObjectURL(vBlob);
+            startHls(vBlobUrl);
+          });
+        } else {
+          // Fallback: use the master playlist as-is
+          var mBlob = new Blob([info.playlist], { type: "application/vnd.apple.mpegurl" });
+          var mBlobUrl = URL.createObjectURL(mBlob);
+          startHls(mBlobUrl);
+        }
+      } else {
+        // Media playlist directly
+        var blob = new Blob([info.playlist], { type: "application/vnd.apple.mpegurl" });
+        var blobUrl = URL.createObjectURL(blob);
+        startHls(blobUrl);
+      }
+    } else if (info.isDash && info.manifest && window.dashjs && window.dashjs.MediaPlayer) {
+      // DASH stream
+      toast("Loading DASH stream...");
+      var dBlob = new Blob([info.manifest], { type: "application/dash+xml" });
+      var dBlobUrl = URL.createObjectURL(dBlob);
+      startDash(dBlobUrl);
     } else {
-      // Non-HLS: stream via Socket.IO chunks + MediaSource
+      // Non-HLS/DASH: stream via Socket.IO chunks + MediaSource
       toast("Loading stream via proxy...");
       $("changeBtn").classList.remove("hidden");
-      socket.emit("meta", { source: "proxy", type: info.contentType || "video/mp4", url: info.url });
-      socket.emit("proxy-start-stream", info.url);
+      socket.emit("meta", { source: "proxy", type: info.contentType || "video/mp4", url: info.url, contentLength: info.contentLength, acceptRanges: info.acceptRanges, magic: info.magic });
+      socket.emit("proxy-play", { url: info.url, startByte: 0, contentType: info.contentType });
     }
   });
+
+  function startHls(blobUrl) {
+    video.classList.remove("hidden");
+    $("youtubePlayer").classList.add("hidden");
+    $("vkPlayer").classList.add("hidden");
+    $("playerArea").classList.remove("hidden");
+    $("uploadArea").classList.add("hidden");
+    $("waitOverlay").classList.add("hidden");
+    liveBadge.classList.remove("hidden");
+    $("changeBtn").classList.remove("hidden");
+    if (window.hlsInstance) { window.hlsInstance.destroy(); }
+    var h = new Hls();
+    window.hlsInstance = h;
+    h.loadSource(blobUrl);
+    h.attachMedia(video);
+    h.on(Hls.Events.MANIFEST_PARSED, function() { video.play(); });
+    socket.emit("meta", { source: "direct", url: blobUrl, isHls: true });
+  }
+
+  function startDash(blobUrl) {
+    video.classList.remove("hidden");
+    $("youtubePlayer").classList.add("hidden");
+    $("vkPlayer").classList.add("hidden");
+    $("playerArea").classList.remove("hidden");
+    $("uploadArea").classList.add("hidden");
+    $("waitOverlay").classList.add("hidden");
+    liveBadge.classList.remove("hidden");
+    $("changeBtn").classList.remove("hidden");
+    if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} dashPlayer = null; }
+    dashPlayer = dashjs.MediaPlayer().create();
+    dashPlayer.initialize(video, blobUrl, true);
+    socket.emit("meta", { source: "direct", url: blobUrl, isDash: true });
+  }
 }
 
 // ==================== YOUTUBE API ====================
@@ -1506,8 +1583,13 @@ socket.on("meta", (m) => {
     $("waitOverlay").classList.add("hidden");
     liveBadge.classList.remove("hidden");
     video.classList.remove("hidden");
+    // DASH streams via dash.js
+    if (m.isDash && window.dashjs && window.dashjs.MediaPlayer) {
+      if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} }
+      dashPlayer = dashjs.MediaPlayer().create();
+      dashPlayer.initialize(video, m.url, true);
     // HLS streams need hls.js on non-Safari browsers
-    if (m.isHls && window.Hls && window.Hls.isSupported()) {
+    } else if (m.isHls && window.Hls && window.Hls.isSupported()) {
       if (window.hlsInstance) { window.hlsInstance.destroy(); }
       var h = new Hls();
       window.hlsInstance = h;
@@ -1630,6 +1712,36 @@ socket.on("proxy-end", () => {
     liveBadge.classList.remove("hidden");
   }
   proxyMode = false;
+});
+
+socket.on("proxy-meta", (meta) => {
+  // Update content-type from upstream response (more accurate than HEAD)
+  if (meta.contentType && videoMeta && videoMeta.source === "proxy") {
+    videoMeta.type = meta.contentType;
+  }
+});
+
+socket.on("proxy-flush", () => {
+  // Server is restarting the stream from a new byte position
+  // Clear existing buffer and prepare for new chunks
+  if (ms && ms.readyState === "open" && sb) {
+    try {
+      sb.abort();
+      if (ms.sourceBuffers.length > 0) {
+        while (ms.sourceBuffers.length > 0) {
+          ms.removeSourceBuffer(ms.sourceBuffers[0]);
+        }
+      }
+    } catch (e) {}
+  }
+  ms = null; sb = null; chunkQ = []; appending = false;
+  proxyBuffer = [];
+  // Re-setup MediaSource with the same mime type
+  if (videoMeta && videoMeta.type && window.MediaSource && MediaSource.isTypeSupported(videoMeta.type)) {
+    setupMediaSource(videoMeta.type);
+  }
+  $("waitOverlay").classList.remove("hidden");
+  $("waitMsg").textContent = "Seeking...";
 });
 
 socket.on("proxy-error", (msg) => {
@@ -1777,6 +1889,7 @@ socket.on("reset", () => {
   sb = null;
   chunkQ = [];
   appending = false;
+  if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} dashPlayer = null; }
   playerType = null;
   $("playerArea").classList.add("hidden");
   $("youtubePlayer").classList.add("hidden");
