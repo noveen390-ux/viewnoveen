@@ -495,6 +495,8 @@ let ms = null;
 let sb = null;
 let chunkQ = [];
 let appending = false;
+let proxyMode = false;
+let proxyBuffer = null;
 let localSeek = false;
 let ignoreNext = false;
 let receiving = false;
@@ -684,6 +686,28 @@ function reclaimHost() {
         $("youtubePlayer").classList.add("hidden");
         $("vkPlayer").classList.add("hidden");
         startTorrent(res.meta.torrentId);
+      } else if (res.meta.source === "proxy") {
+        playerType = "proxy";
+        proxyMode = true;
+        proxyBuffer = null;
+        $("uploadArea").classList.add("hidden");
+        $("playerArea").classList.remove("hidden");
+        $("waitOverlay").classList.remove("hidden");
+        $("waitMsg").textContent = "Reconnecting to stream...";
+        liveBadge.classList.add("hidden");
+        video.classList.remove("hidden");
+        $("youtubePlayer").classList.add("hidden");
+        $("vkPlayer").classList.add("hidden");
+        $("waitOverlay").classList.remove("hidden");
+        const mime = res.meta.type || "video/mp4";
+        if (window.MediaSource && MediaSource.isTypeSupported(mime)) {
+          setupMediaSource(mime);
+          socket.emit("proxy-start-stream", res.meta.url);
+        } else {
+          proxyBuffer = [];
+          useFallback = true;
+          socket.emit("proxy-start-stream", res.meta.url);
+        }
       } else {
         playerType = "upload";
         $("uploadArea").classList.remove("hidden");
@@ -825,6 +849,8 @@ function changeVideo() {
   video.src = "";
   video.load();
   videoMeta = null;
+  proxyMode = false;
+  proxyBuffer = null;
   totalChunks = 0;
   chunkBuf = [];
   useFallback = false;
@@ -1214,15 +1240,14 @@ function playStremioLink() {
     return;
   }
 
-  // Resolve via the server to determine stream type
+  // Resolve via Socket.IO proxy (only channel that works on deployment)
   toast("Resolving stream URL...");
-  fetch("/proxy?check=1&url=" + encodeURIComponent(val)).then(function(r) { return r.json(); }).then(function(info) {
+  socket.emit("proxy-start", val, (info) => {
     if (info.error) return toast("Stream check failed: " + info.error);
-    console.log("[proxy/check] final:", info.url, "status:", info.status, "type:", info.contentType, "hls:", info.isHls);
+    console.log("[proxy-start] final:", info.url, "status:", info.status, "type:", info.contentType, "hls:", info.isHls);
+
     if (info.isHls && window.Hls && window.Hls.isSupported()) {
       toast("Loading HLS stream...");
-      var proxyUrl = "/proxy?url=" + encodeURIComponent(val);
-      playerType = "direct";
       video.classList.remove("hidden");
       $("youtubePlayer").classList.add("hidden");
       $("vkPlayer").classList.add("hidden");
@@ -1234,16 +1259,20 @@ function playStremioLink() {
       if (window.hlsInstance) { window.hlsInstance.destroy(); }
       var hls = new Hls();
       window.hlsInstance = hls;
-      hls.loadSource(proxyUrl);
+      // Create Blob URL from server-rewritten playlist (relative → absolute URLs)
+      var blob = new Blob([info.playlist], { type: "application/vnd.apple.mpegurl" });
+      var blobUrl = URL.createObjectURL(blob);
+      hls.loadSource(blobUrl);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, function() { video.play(); });
-      socket.emit("meta", { source: "direct", url: proxyUrl, isHls: true });
+      socket.emit("meta", { source: "direct", url: blobUrl, isHls: true });
     } else {
-      startDirect("/proxy?url=" + encodeURIComponent(val));
+      // Non-HLS: stream via Socket.IO chunks + MediaSource
+      toast("Loading stream via proxy...");
+      $("changeBtn").classList.remove("hidden");
+      socket.emit("meta", { source: "proxy", type: info.contentType || "video/mp4", url: info.url });
+      socket.emit("proxy-start-stream", info.url);
     }
-  }).catch(function(err) {
-    console.error("[proxy/check] error:", err);
-    toast("Could not resolve stream: " + err.message);
   });
 }
 
@@ -1505,7 +1534,34 @@ socket.on("meta", (m) => {
     return;
   }
 
+  // Proxy source (chunked via Socket.IO by server)
+  if (m.source === "proxy") {
+    playerType = "proxy";
+    proxyMode = true;
+    proxyBuffer = null;
+    ms = null; sb = null; chunkQ = []; appending = false;
+    $("playerArea").classList.remove("hidden");
+    $("uploadArea").classList.add("hidden");
+    $("waitOverlay").classList.remove("hidden");
+    $("waitMsg").textContent = "Loading video...";
+    liveBadge.classList.add("hidden");
+    video.classList.remove("hidden");
+    $("youtubePlayer").classList.add("hidden");
+    $("vkPlayer").classList.add("hidden");
+
+    const mime = m.type || "video/mp4";
+    if (window.MediaSource && MediaSource.isTypeSupported(mime)) {
+      setupMediaSource(mime);
+    } else {
+      proxyBuffer = [];
+      useFallback = true;
+    }
+    return;
+  }
+
   // Upload source - existing behavior
+  proxyMode = false;
+  proxyBuffer = null;
   playerType = "upload";
   totalChunks = m.t;
   chunkBuf = new Array(m.t);
@@ -1549,6 +1605,38 @@ socket.on("chunk", (d) => {
 
   chunkQ.push(buf);
   processQ();
+});
+
+socket.on("proxy-chunk", (data) => {
+  const buf = new Uint8Array(data.d);
+  if (useFallback && proxyBuffer) {
+    proxyBuffer.push(buf);
+  } else if (proxyMode) {
+    chunkQ.push(buf);
+    processQ();
+  }
+});
+
+socket.on("proxy-end", () => {
+  if (useFallback && proxyBuffer && proxyBuffer.length > 0) {
+    const blob = new Blob(proxyBuffer, { type: videoMeta ? videoMeta.type || "video/mp4" : "video/mp4" });
+    video.src = URL.createObjectURL(blob);
+    $("waitOverlay").classList.add("hidden");
+    liveBadge.classList.remove("hidden");
+    proxyBuffer = null;
+  } else if (proxyMode && ms && ms.readyState === "open") {
+    try { ms.endOfStream(); } catch (e) {}
+    $("waitOverlay").classList.add("hidden");
+    liveBadge.classList.remove("hidden");
+  }
+  proxyMode = false;
+});
+
+socket.on("proxy-error", (msg) => {
+  toast("Proxy stream error: " + msg);
+  proxyMode = false;
+  proxyBuffer = null;
+  $("waitOverlay").classList.add("hidden");
 });
 
 socket.on("play", (t) => {
@@ -1680,6 +1768,8 @@ socket.on("reset", () => {
   video.src = "";
   video.load();
   videoMeta = null;
+  proxyMode = false;
+  proxyBuffer = null;
   totalChunks = 0;
   chunkBuf = [];
   useFallback = false;
@@ -1754,12 +1844,12 @@ function processQ() {
 
   // Update loading progress
   const received = chunkBuf.filter(Boolean).length;
-  if (received > 0 && received < totalChunks && !$("waitOverlay").classList.contains("hidden")) {
+  if (!proxyMode && received > 0 && received < totalChunks && !$("waitOverlay").classList.contains("hidden")) {
     $("waitMsg").textContent = `Loading video... ${Math.round((received / totalChunks) * 100)}%`;
   }
 
   // Check if we have all chunks
-  if (received === totalChunks && ms && ms.readyState === "open") {
+  if (!proxyMode && received === totalChunks && ms && ms.readyState === "open") {
     try {
       ms.endOfStream();
     } catch (e) {}

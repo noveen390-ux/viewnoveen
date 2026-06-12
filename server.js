@@ -233,6 +233,14 @@ io.on("connection", (socket) => {
           socket.emit("chunk", { i, t: room.total, d: room.chunks[i] });
         }
       }
+      if (room.proxyChunks && room.proxyChunks.length > 0) {
+        for (const c of room.proxyChunks) {
+          socket.emit("proxy-chunk", { d: c, last: false });
+        }
+        if (!room.proxyFetching) {
+          socket.emit("proxy-end");
+        }
+      }
     }
 
     socket.emit("state", room.state);
@@ -243,7 +251,7 @@ io.on("connection", (socket) => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
       room.meta = m;
-      if (m.source === "youtube" || m.source === "drive" || m.source === "vk" || m.source === "archive" || m.source === "direct" || m.source === "torrent") {
+      if (m.source === "youtube" || m.source === "drive" || m.source === "vk" || m.source === "archive" || m.source === "direct" || m.source === "torrent" || m.source === "proxy") {
         room.total = 0;
         room.chunks = [];
       } else {
@@ -291,6 +299,91 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("proxy-start", async (url, cb) => {
+    if (!url) return cb({ error: "Missing url" });
+    try {
+      const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
+      let current = url;
+      let lastRes = null;
+      for (let i = 0; i < 20; i++) {
+        const r = await fetch(current, { method: "HEAD", redirect: "manual", headers });
+        const loc = [301, 302, 303, 307, 308].includes(r.status) ? r.headers.get("location") : null;
+        if (loc) { current = new URL(loc, current).href; continue; }
+        lastRes = r;
+        break;
+      }
+      if (!lastRes) return cb({ error: "Redirect chain broken" });
+      const ct = lastRes.headers.get("content-type") || "";
+      const isHls = ct.includes("mpegurl") || ct.includes("mpegURL") || current.toLowerCase().includes(".m3u8");
+      console.log(`[proxy-start] final: ${current}  status: ${lastRes.status}  type: ${ct}  hls: ${isHls}`);
+
+      let playlist = null;
+      if (isHls) {
+        try {
+          const pr = await fetch(current, { redirect: "follow", headers });
+          const raw = await pr.text();
+          const base = current.substring(0, current.lastIndexOf("/") + 1);
+          playlist = raw.split("\n").map(line => {
+            if (line.startsWith("#") || line.trim() === "") return line;
+            try { new URL(line); return line; } catch (e) { return base + line; }
+          }).join("\n");
+        } catch (e) {
+          console.error(`[proxy-start] playlist fetch error: ${e.message}`);
+        }
+      }
+
+      cb({ url: current, status: lastRes.status, contentType: ct, isHls, playlist });
+    } catch (e) {
+      console.error(`[proxy-start] error: ${e.message}`);
+      cb({ error: e.message });
+    }
+  });
+
+  socket.on("proxy-start-stream", async (url) => {
+    const room = rooms[socket.data.room];
+    if (!room || room.host !== socket.id) return;
+
+    room.proxyChunks = [];
+    room.proxyFetching = true;
+
+    try {
+      const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
+      const response = await fetch(url, { redirect: "follow", headers });
+      if (!response.ok || !response.body) throw new Error("Server fetch failed with status " + response.status);
+
+      let idx = 0;
+      let bufs = [];
+      let bufsLen = 0;
+      const CHUNK_SIZE = 256 * 1024;
+      for await (const chunk of response.body) {
+        bufs.push(chunk);
+        bufsLen += chunk.length;
+        if (bufsLen >= CHUNK_SIZE) {
+          const combined = Buffer.concat(bufs);
+          room.proxyChunks.push(combined);
+          io.to(socket.data.room).emit("proxy-chunk", { d: combined, last: false });
+          bufs = [];
+          bufsLen = 0;
+        }
+      }
+      if (bufsLen > 0) {
+        const combined = Buffer.concat(bufs);
+        room.proxyChunks.push(combined);
+        io.to(socket.data.room).emit("proxy-chunk", { d: combined, last: false });
+      }
+
+      room.proxyFetching = false;
+      room.total = room.proxyChunks.length;
+      io.to(socket.data.room).emit("proxy-end");
+    } catch (e) {
+      console.error(`[proxy-start-stream] error: ${e.message}`);
+      if (room) {
+        room.proxyFetching = false;
+        io.to(socket.data.room).emit("proxy-error", e.message);
+      }
+    }
+  });
+
   socket.on("chat", ({ n, m }) => {
     const room = rooms[socket.data.room];
     if (room) io.to(socket.data.room).emit("chat", { n, m, id: Date.now() });
@@ -302,6 +395,8 @@ io.on("connection", (socket) => {
       room.meta = null;
       room.chunks = [];
       room.total = 0;
+      room.proxyChunks = [];
+      room.proxyFetching = false;
       deleteChunksFile(socket.data.room);
       socket.to(socket.data.room).emit("reset");
       scheduleSave();
