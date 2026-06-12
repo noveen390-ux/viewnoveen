@@ -147,6 +147,28 @@ rooms = loadRooms();
 
 app.use(express.static(__dirname));
 
+// Proxy endpoint for Stremio extract URLs that don't work directly in the browser
+app.get("/proxy", async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).end("Missing url");
+  try {
+    const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
+    if (req.headers.range) headers["Range"] = req.headers.range;
+    const upstream = await fetch(url, { redirect: "follow", headers });
+    ["content-type", "content-length", "content-range", "accept-ranges"].forEach(h => {
+      const v = upstream.headers.get(h);
+      if (v) res.setHeader(h, v);
+    });
+    res.status(upstream.status);
+    if (upstream.body) {
+      for await (const chunk of upstream.body) res.write(chunk);
+    }
+    res.end();
+  } catch (e) {
+    res.status(502).end("Proxy error");
+  }
+});
+
 io.on("connection", (socket) => {
   socket.on("create", (cb) => {
     let code;

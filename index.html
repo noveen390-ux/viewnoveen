@@ -1202,9 +1202,8 @@ function playStremioLink() {
     return;
   }
 
-  // Direct URL (video, HLS, or any other stream URL)
-  $("directInput").value = val;
-  loadDirect();
+  // Route through the server proxy (handles redirects, CORS, and Content-Type issues)
+  startDirect("/proxy?url=" + encodeURIComponent(val));
 }
 
 // ==================== YOUTUBE API ====================
