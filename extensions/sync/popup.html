@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ViewNoveen Sync</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>ViewNoveen Sync</h1>
+    <span id="statusDot" class="dot offline"></span>
+  </header>
+
+  <div id="roomSection">
+    <div id="noRoom">
+      <p class="hint">Create a room to start a watch party, or join one with a code.</p>
+      <button id="createBtn" class="btn primary">Create Room</button>
+      <div class="divider"><span>or</span></div>
+      <div class="join-row">
+        <input id="codeInput" type="text" placeholder="Enter room code" maxlength="6" autocomplete="off">
+        <button id="joinBtn" class="btn secondary">Join</button>
+      </div>
+    </div>
+
+    <div id="inRoom" class="hidden">
+      <div class="room-info">
+        <span class="label">Room</span>
+        <span id="roomCodeDisplay" class="code"></span>
+        <button id="copyBtn" class="btn small" title="Copy code">📋</button>
+      </div>
+      <div class="role-badge" id="roleBadge"></div>
+      <div class="viewer-count">Viewers: <span id="viewerCount">1</span></div>
+      <div class="status-row">
+        <span id="syncStatus" class="sync-ok">Synced</span>
+      </div>
+      <button id="leaveBtn" class="btn danger">Leave Room</button>
+    </div>
+
+    <div id="errorMsg" class="error hidden"></div>
+  </div>
+
+  <footer>
+    <div class="server-row">
+      <span>Server:</span>
+      <input id="serverInput" type="text" value="http://localhost:3000">
+    </div>
+  </footer>
+</div>
+<script src="popup.js"></script>
+</body>
+</html>

@@ -6,6 +6,7 @@ const { Server } = require("socket.io");
 const crypto = require("crypto");
 const path = require("path");
 const fs = require("fs");
+const { spawn } = require("child_process");
 
 const app = express();
 const server = createServer(app);
@@ -22,6 +23,10 @@ const PORT = process.env.PORT || process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, "data");
 const ROOMS_FILE = path.join(DATA_DIR, "rooms.json");
 let rooms = {};
+const ffmpegProcesses = {};
+const HLS_DIR = path.join(__dirname, "hls");
+if (!fs.existsSync(HLS_DIR)) fs.mkdirSync(HLS_DIR, { recursive: true });
+app.use("/hls", express.static(HLS_DIR));
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -145,6 +150,15 @@ setInterval(() => doSave(), 30 * 1000);
 
 rooms = loadRooms();
 
+// Minimal player page for iframe-based direct URL playback
+// The <video> tag uses /proxy to stream the content same-origin (avoids CORS and 404s)
+app.get("/player", (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).send("Missing url parameter");
+  const enc = encodeURIComponent(url);
+  res.send(`<!DOCTYPE html><html><body style="margin:0;background:#000"><video src="/proxy?url=${enc}" controls autoplay style="width:100%;height:100vh"></video></body></html>`);
+});
+
 app.use(express.static(__dirname));
 
 // Proxy endpoint for Stremio extract URLs that don't work directly in the browser
@@ -153,6 +167,8 @@ app.use(express.static(__dirname));
 app.get("/proxy", async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).end("Missing url");
+  // Suppress write-after-destroy errors (client disconnect = expected, not a crash)
+  res.on("error", () => {});
   try {
     const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
 
@@ -183,12 +199,15 @@ app.get("/proxy", async (req, res) => {
     });
     res.status(upstream.status);
     if (upstream.body) {
-      for await (const chunk of upstream.body) res.write(chunk);
+      for await (const chunk of upstream.body) {
+        if (res.destroyed) break;
+        res.write(chunk);
+      }
     }
-    res.end();
+    if (!res.destroyed) res.end();
   } catch (e) {
     console.error(`[proxy] error: ${e.message}`);
-    res.status(502).end("Proxy error");
+    if (!res.destroyed) res.status(502).end("Proxy error");
   }
 });
 
@@ -469,16 +488,109 @@ io.on("connection", (socket) => {
     if (room) io.to(socket.data.room).emit("chat", { n, m, id: Date.now() });
   });
 
+  socket.on("resolve-url", async (url, cb) => {
+    if (typeof url !== "string" || (!url.startsWith("http://") && !url.startsWith("https://"))) {
+      return cb({ error: "Invalid URL", url: url || "" });
+    }
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(url, { signal: controller.signal, redirect: "follow" });
+      clearTimeout(timeout);
+      // Consume body to release the connection
+      await response.body?.cancel();
+      cb({ url: response.url });
+    } catch (e) {
+      cb({ error: e.message, url });
+    }
+  });
+
+  socket.on("vlc-transcode", (url, cb) => {
+    const code = socket.data.room;
+    if (!code || !rooms[code] || rooms[code].host !== socket.id) return cb({ error: "Not authorized" });
+    if (!url.startsWith("rtsp://") && !url.startsWith("rtmp://") && !url.startsWith("mms://")) return cb({ error: "Unsupported protocol" });
+
+    // Kill any existing ffmpeg process for this room
+    if (ffmpegProcesses[code]) {
+      try { ffmpegProcesses[code].kill(); } catch (e) {}
+    }
+    // Clean up old HLS files for this room
+    const roomDir = path.join(HLS_DIR, code);
+    if (fs.existsSync(roomDir)) {
+      try { fs.rmSync(roomDir, { recursive: true, force: true }); } catch (e) {}
+    }
+
+    fs.mkdirSync(roomDir, { recursive: true });
+    const outputPath = path.join(roomDir, "index.m3u8");
+    const segPattern = path.join(roomDir, "seg%03d.ts");
+
+    const ff = spawn("ffmpeg", [
+      "-i", url,
+      "-c:v", "libx264",
+      "-preset", "ultrafast",
+      "-tune", "zerolatency",
+      "-c:a", "aac",
+      "-f", "hls",
+      "-hls_time", "2",
+      "-hls_list_size", "5",
+      "-hls_flags", "delete_segments",
+      "-hls_segment_filename", segPattern,
+      outputPath,
+    ], { stdio: ["ignore", "pipe", "pipe"] });
+
+    ffmpegProcesses[code] = ff;
+
+    let started = false;
+    const checkInterval = setInterval(() => {
+      if (fs.existsSync(outputPath)) {
+        const stat = fs.statSync(outputPath);
+        if (stat.size > 0 && !started) {
+          started = true;
+          clearInterval(checkInterval);
+          cb({ url: `/hls/${code}/index.m3u8` });
+        }
+      }
+    }, 500);
+
+    // Timeout after 30s if playlist never appears
+    setTimeout(() => {
+      clearInterval(checkInterval);
+      if (!started) {
+        try { ff.kill(); } catch (e) {}
+        delete ffmpegProcesses[code];
+        cb({ error: "ffmpeg did not produce output within 30 seconds" });
+      }
+    }, 30000);
+
+    ff.stderr.on("data", (d) => {
+      const msg = d.toString();
+      // Only log ffmpeg errors, not routine status
+      if (msg.toLowerCase().includes("error")) console.error(`[ffmpeg:${code}] ${msg.trim()}`);
+    });
+
+    ff.on("exit", (code_) => {
+      clearInterval(checkInterval);
+      delete ffmpegProcesses[code];
+      if (!started) cb({ error: `ffmpeg exited with code ${code_}` });
+    });
+  });
+
   socket.on("reset", () => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
+      // Kill ffmpeg if running
+      const code = socket.data.room;
+      if (ffmpegProcesses[code]) {
+        try { ffmpegProcesses[code].kill(); } catch (e) {}
+        delete ffmpegProcesses[code];
+      }
       room.meta = null;
       room.chunks = [];
       room.total = 0;
       room.proxyChunks = [];
       room.proxyFetching = false;
-      deleteChunksFile(socket.data.room);
-      socket.to(socket.data.room).emit("reset");
+      deleteChunksFile(code);
+      socket.to(code).emit("reset");
       scheduleSave();
     }
   });
@@ -521,6 +633,11 @@ io.on("connection", (socket) => {
       room.host = null;
       room._abandonedAt = Date.now();
       io.to(code).emit("count", Object.keys(room.users).length);
+      // Kill ffmpeg if running
+      if (ffmpegProcesses[code]) {
+        try { ffmpegProcesses[code].kill(); } catch (e) {}
+        delete ffmpegProcesses[code];
+      }
     } else if (Object.keys(room.users).length === 0 && !room.host) {
       room._abandonedAt = Date.now();
     } else {
@@ -529,6 +646,11 @@ io.on("connection", (socket) => {
 
     scheduleSave();
   });
+});
+
+// Catch unhandled promise rejections to prevent crashes
+process.on("unhandledRejection", (err) => {
+  console.error("Unhandled rejection:", err?.message || err);
 });
 
 server.listen(PORT, () => {

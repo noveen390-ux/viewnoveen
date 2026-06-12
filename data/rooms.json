@@ -1,95 +1,62 @@
 {
-  "B29904": {
+  "B865BD": {
     "meta": {
       "source": "direct",
-      "url": "http://127.0.0.1:11470/f4a12f197be0f0fbf3678b842b3faf50458ee22a/0?"
+      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
     },
     "total": 0,
     "state": {
       "p": false,
       "t": 0
     },
-    "_abandonedAt": 1781275795287
+    "_abandonedAt": 1781297063914
   },
-  "068B48": {
-    "meta": {
-      "source": "torrent",
-      "torrentId": "magnet:?xt=urn:btih:f4a12f197be0f0fbf3678b842b3faf50458ee22a&dn=%5BP2P%E2%98%81%EF%B8%8F%5D%0AMeteor%E2%80%89%E2%80%89%E2%80%89%E2%80%89%E2%80%89%E2%80%89%E2%80%89%0A2160p"
-    },
-    "total": 0,
-    "state": {
-      "p": false,
-      "t": 0
-    },
-    "_abandonedAt": 1781276279276
-  },
-  "CD5FED": {
-    "meta": null,
-    "total": 0,
-    "state": {
-      "p": false,
-      "t": 0
-    },
-    "_abandonedAt": 1781277600793
-  },
-  "336E9F": {
+  "1AD885": {
     "meta": {
       "source": "direct",
-      "url": "https://87d6a6ef6b58-webstreamrmbg.baby-beamup.club/%7B%22multi%22%3A%22on%22%2C%22en%22%3A%22on%22%7D/extract/?index=0&url=https%3A%2F%2Fhubcloud.foo%2Fdrive%2Fddcjbbpkjfgbwpd"
+      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
     },
-    "total": 0,
-    "state": {
-      "p": false,
-      "t": 0
-    },
-    "_abandonedAt": 1781278920825
-  },
-  "678B5C": {
-    "meta": {
-      "source": "direct",
-      "url": "/proxy?url=https%3A%2F%2F87d6a6ef6b58-webstreamrmbg.baby-beamup.club%2F%257B%2522multi%2522%253A%2522on%2522%252C%2522en%2522%253A%2522on%2522%257D%2Fextract%2F%3Findex%3D0%26url%3Dhttps%253A%252F%252Fhubcloud.foo%252Fdrive%252Fddcjbbpkjfgbwpd"
-    },
-    "total": 0,
-    "state": {
-      "p": false,
-      "t": 0
-    },
-    "_abandonedAt": 1781279459205
-  },
-  "9C334B": {
-    "meta": null,
-    "total": 0,
-    "state": {
-      "p": false,
-      "t": 0
-    },
-    "_abandonedAt": 1781280535801
-  },
-  "321C19": {
-    "meta": null,
-    "total": 0,
-    "state": {
-      "p": false,
-      "t": 0
-    },
-    "_abandonedAt": 1781281101760
-  },
-  "2ABCDF": {
-    "meta": null,
-    "total": 0,
-    "state": {
-      "p": false,
-      "t": 0
-    },
-    "_abandonedAt": 1781282170911
-  },
-  "E9DB9C": {
-    "meta": null,
     "total": 0,
     "state": {
       "p": false,
       "t": 0
     },
     "_abandonedAt": null
+  },
+  "16C049": {
+    "meta": {
+      "source": "direct",
+      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+    },
+    "total": 0,
+    "state": {
+      "p": false,
+      "t": 0
+    },
+    "_abandonedAt": null
+  },
+  "76A85F": {
+    "meta": {
+      "source": "youtube",
+      "videoId": "lr1fTEi9EMA"
+    },
+    "total": 0,
+    "state": {
+      "p": true,
+      "t": 1024.5280569408721
+    },
+    "_abandonedAt": 1781300383875
+  },
+  "258D64": {
+    "meta": {
+      "source": "test",
+      "url": "x"
+    },
+    "total": 0,
+    "state": {
+      "p": true,
+      "t": 10.5
+    },
+    "_abandonedAt": 1781300929512
   }
 }

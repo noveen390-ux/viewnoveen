@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "ViewNoveen Sync",
+  "version": "1.0.0",
+  "description": "Watch-party sync: watch videos together in real-time on any site",
+  "permissions": ["storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "all_frames": true,
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ViewNoveen Sync"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}
