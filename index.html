@@ -479,6 +479,7 @@ let dmReady = false;
 let dmDuration = 1;
 let dmPlaying = false;
 let dmCurrentTime = 0;
+let dmInterval = null;
 let pendingState = null;
 let intentionalLeave = false;
 
@@ -645,9 +646,8 @@ function reclaimHost() {
         if (res.state.p) vkPlayer.play();
         else vkPlayer.pause();
       } else if (res.meta && res.meta.source === "dailymotion") {
-        dmCommand("seek", [res.state.t]);
-        if (res.state.p) dmCommand("play");
-        else dmCommand("pause");
+        if (!dmReady) { pendingState = { t: res.state.t, p: res.state.p }; }
+        else { dmCommand("seek", [res.state.t]); if (res.state.p) dmCommand("play"); else dmCommand("pause"); }
       } else {
         if (res.state.p) {
           video.currentTime = res.state.t;
@@ -1188,11 +1188,21 @@ function createDMPlayer(videoId) {
   video.classList.add("hidden");
   const iframe = document.getElementById("dmFrame");
   iframe.src = `https://www.dailymotion.com/embed/video/${videoId}?api=postMessage&controls=false&autoplay=false`;
+  if (dmInterval) clearInterval(dmInterval);
+  dmInterval = setInterval(() => {
+    if (dmDuration > 1 && playerType === "dailymotion") {
+      if (!localSeek) seekbar.value = (dmCurrentTime / dmDuration) * 1000;
+      timeDisplay.textContent = `${fmtTime(dmCurrentTime)} / ${fmtTime(dmDuration)}`;
+    }
+  }, 250);
 }
 
 function destroyDMPlayer() {
+  if (dmInterval) { clearInterval(dmInterval); dmInterval = null; }
   dmReady = false;
   dmDuration = 1;
+  dmCurrentTime = 0;
+  dmPlaying = false;
   const iframe = document.getElementById("dmFrame");
   if (iframe) { iframe.src = ""; iframe.onload = null; }
   $("dmPlayer").classList.add("hidden");
@@ -1212,10 +1222,24 @@ window.addEventListener("message", function dmListener(e) {
   try { data = typeof e.data === "string" ? JSON.parse(e.data) : e.data; } catch (_) { return; }
   if (!data || !data.event) return;
 
+  const hasDuration = data.duration && data.duration > 1;
+
+  // Mark ready and process pending state when we have enough info
+  if (!dmReady && (data.event === "playing" || data.event === "pause" || (data.event === "timeupdate" && hasDuration))) {
+    dmReady = true;
+    if (data.duration) dmDuration = data.duration;
+    if (pendingState) {
+      if (pendingState.p) { dmCommand("seek", [pendingState.t]); dmCommand("play"); }
+      else { dmCommand("seek", [pendingState.t]); dmCommand("pause"); }
+      pendingState = null;
+    }
+  }
+
   if (data.event === "playing") {
     if (playerType !== "dailymotion") return;
-    dmReady = true;
     dmPlaying = true;
+    if (data.duration) dmDuration = data.duration;
+    if (data.time !== undefined) dmCurrentTime = data.time;
     if (isHost && !ignoreNext) {
       playBtn.innerHTML = "\u23F8";
       socket.emit("play", data.time || 0);
@@ -1224,6 +1248,8 @@ window.addEventListener("message", function dmListener(e) {
   if (data.event === "pause") {
     if (playerType !== "dailymotion") return;
     dmPlaying = false;
+    if (data.duration) dmDuration = data.duration;
+    if (data.time !== undefined) dmCurrentTime = data.time;
     if (isHost && !ignoreNext) {
       playBtn.innerHTML = "\u25B6";
       socket.emit("pause", data.time || 0);
@@ -1238,6 +1264,7 @@ window.addEventListener("message", function dmListener(e) {
   }
   if (data.event === "ended" && isHost && playerType === "dailymotion") {
     playBtn.innerHTML = "\u25B6";
+    dmPlaying = false;
   }
 });
 
@@ -1365,8 +1392,8 @@ socket.on("play", (t) => {
     vkPlayer.seek(t);
     vkPlayer.play();
   } else if (playerType === "dailymotion") {
-    dmCommand("seek", [t]);
-    dmCommand("play");
+    if (!dmReady) { pendingState = { t, p: true }; }
+    else { dmCommand("seek", [t]); dmCommand("play"); }
   } else {
     video.currentTime = t;
     video.play().catch(() => {});
@@ -1383,8 +1410,8 @@ socket.on("pause", (t) => {
     vkPlayer.seek(t);
     vkPlayer.pause();
   } else if (playerType === "dailymotion") {
-    dmCommand("seek", [t]);
-    dmCommand("pause");
+    if (!dmReady) { pendingState = { t, p: false }; }
+    else { dmCommand("seek", [t]); dmCommand("pause"); }
   } else {
     video.currentTime = t;
     video.pause();
@@ -1399,7 +1426,8 @@ socket.on("seek", (t) => {
   } else if (playerType === "vk" && vkPlayer && vkPlayer.seek) {
     vkPlayer.seek(t);
   } else if (playerType === "dailymotion") {
-    dmCommand("seek", [t]);
+    if (!dmReady) { pendingState = { t, p: dmPlaying }; }
+    else { dmCommand("seek", [t]); }
   } else {
     video.currentTime = t;
   }
@@ -1439,8 +1467,15 @@ socket.on("sync-state", ({ t, p }) => {
     return;
   }
   if (playerType === "dailymotion") {
-    if (p) { dmCommand("seek", [t]); dmCommand("play"); }
-    else { dmCommand("seek", [t]); dmCommand("pause"); }
+    if (!dmReady) { pendingState = { t, p }; return; }
+    const diff = Math.abs(dmCurrentTime - t);
+    if (diff > 2) {
+      ignoreNext = true;
+      dmCommand("seek", [t]);
+      setTimeout(() => (ignoreNext = false), 1000);
+    }
+    if (p && !dmPlaying) dmCommand("play");
+    else if (!p && dmPlaying) dmCommand("pause");
     return;
   }
   if (!$("playerArea").classList.contains("hidden") && !$("waitOverlay").classList.contains("hidden")) return;
@@ -1472,7 +1507,8 @@ socket.on("state", (s) => {
       pendingState = s;
     }
   } else if (playerType === "dailymotion") {
-    if (s.p) { dmCommand("seek", [s.t]); dmCommand("play"); }
+    if (!dmReady) { pendingState = { t: s.t, p: s.p }; }
+    else if (s.p) { dmCommand("seek", [s.t]); dmCommand("play"); }
     else { dmCommand("seek", [s.t]); dmCommand("pause"); }
   } else if (!playerType || playerType === "upload" || playerType === "drive") {
     if (s.p) {
