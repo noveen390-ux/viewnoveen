@@ -350,6 +350,7 @@ input,button{font-family:inherit;font-size:14px}
           <button class="btn source-btn" data-source="direct" style="width:auto;padding:8px 20px" onclick="selectSource('direct')">Direct</button>
           <button class="btn source-btn" data-source="torrent" style="width:auto;padding:8px 20px" onclick="selectSource('torrent')">Torrent</button>
           <button class="btn source-btn" data-source="stremio" style="width:auto;padding:8px 20px" onclick="selectSource('stremio')">Stremio</button>
+          <button class="btn source-btn" data-source="stream" style="width:auto;padding:8px 20px" onclick="selectSource('stream')">Stream</button>
         </div>
 
         <!-- Upload -->
@@ -423,6 +424,15 @@ input,button{font-family:inherit;font-size:14px}
           <div style="display:flex;gap:8px;max-width:500px;margin:0 auto">
             <input type="text" id="stremioInput" placeholder="Paste any stream link here..." style="flex:1">
             <button class="btn" style="width:auto;padding:10px 20px" onclick="playStremioLink()">Play</button>
+          </div>
+        </div>
+
+        <!-- Stream -->
+        <div id="streamSection" class="hidden" style="padding:16px 0">
+          <p style="margin-bottom:12px;color:var(--text2)">Paste a direct video URL or HLS/M3U8 stream URL</p>
+          <div style="display:flex;gap:8px;max-width:500px;margin:0 auto">
+            <input type="text" id="streamInput" placeholder="https://example.com/video.mp4 or .../playlist.m3u8" style="flex:1">
+            <button class="btn" style="width:auto;padding:10px 20px" onclick="loadStream()">Play</button>
           </div>
         </div>
       </div>
@@ -677,8 +687,20 @@ function reclaimHost() {
         $("waitOverlay").classList.add("hidden");
         liveBadge.classList.remove("hidden");
         video.classList.remove("hidden");
-        video.src = res.meta.url;
-        video.load();
+        if (res.meta.isHls && window.Hls && window.Hls.isSupported()) {
+          if (window.hlsInstance) { window.hlsInstance.destroy(); }
+          var h = new Hls();
+          window.hlsInstance = h;
+          h.loadSource(res.meta.url);
+          h.attachMedia(video);
+        } else if (res.meta.isDash && window.dashjs && window.dashjs.MediaPlayer) {
+          if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} }
+          dashPlayer = dashjs.MediaPlayer().create();
+          dashPlayer.initialize(video, res.meta.url, true);
+        } else {
+          video.src = res.meta.url;
+          video.load();
+        }
       } else if (res.meta.source === "torrent") {
         playerType = "torrent";
         $("uploadArea").classList.add("hidden");
@@ -884,6 +906,7 @@ function changeVideo() {
   if (window.hlsInstance) { window.hlsInstance.destroy(); window.hlsInstance = null; }
   if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} dashPlayer = null; }
   $("stremioInput").value = "";
+  $("streamInput").value = "";
 }
 
 // ==================== FULLSCREEN ====================
@@ -1009,6 +1032,7 @@ function selectSource(type) {
   $("directSection").classList.toggle("hidden", type !== "direct");
   $("torrentSection").classList.toggle("hidden", type !== "torrent");
   $("stremioSection").classList.toggle("hidden", type !== "stremio");
+  $("streamSection").classList.toggle("hidden", type !== "stream");
 }
 
 function extractYouTubeId(val) {
@@ -1172,6 +1196,71 @@ function loadDirect() {
 }
 
 function startDirect(url) {
+  playerType = "direct";
+  video.src = url;
+  video.load();
+  video.classList.remove("hidden");
+  $("youtubePlayer").classList.add("hidden");
+  $("vkPlayer").classList.add("hidden");
+  $("playerArea").classList.remove("hidden");
+  $("uploadArea").classList.add("hidden");
+  $("waitOverlay").classList.add("hidden");
+  liveBadge.classList.remove("hidden");
+  $("changeBtn").classList.remove("hidden");
+  socket.emit("meta", { source: "direct", url });
+}
+
+// ==================== STREAM ====================
+function loadStream() {
+  if (!isHost) return;
+  const val = $("streamInput").value.trim();
+  if (!val) return toast("Enter a video or HLS stream URL");
+  if (!val.startsWith("http://") && !val.startsWith("https://")) return toast("URL must start with http:// or https://");
+
+  // Detect YouTube URLs and route to YouTube player
+  const ytId = extractYouTubeId(val);
+  if (ytId) {
+    socket.emit("meta", { source: "youtube", videoId: ytId });
+    playerType = "youtube";
+    $("uploadArea").classList.add("hidden");
+    $("playerArea").classList.remove("hidden");
+    $("waitOverlay").classList.add("hidden");
+    liveBadge.classList.remove("hidden");
+    if (ytApiReady) createYTPlayer(ytId);
+    else { loadYouTubeAPI(); const check = setInterval(() => { if (ytApiReady) { clearInterval(check); createYTPlayer(ytId); } }, 200); }
+    $("changeBtn").classList.remove("hidden");
+    return;
+  }
+
+  const isHls = val.toLowerCase().includes(".m3u8");
+  if (isHls && window.Hls && window.Hls.isSupported()) {
+    toast("Loading HLS stream...");
+    $("changeBtn").classList.remove("hidden");
+    video.classList.remove("hidden");
+    $("youtubePlayer").classList.add("hidden");
+    $("vkPlayer").classList.add("hidden");
+    $("playerArea").classList.remove("hidden");
+    $("uploadArea").classList.add("hidden");
+    $("waitOverlay").classList.add("hidden");
+    liveBadge.classList.remove("hidden");
+    if (window.hlsInstance) { window.hlsInstance.destroy(); }
+    var hls = new Hls();
+    window.hlsInstance = hls;
+    hls.loadSource(val);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, function() { video.play(); });
+    socket.emit("meta", { source: "direct", url: val, isHls: true });
+  } else if (isHls && (!window.Hls || !window.Hls.isSupported())) {
+    // HLS not supported in this browser; try native playback
+    toast("HLS not supported in this browser; attempting direct playback...");
+    startStreamDirect(val);
+  } else {
+    toast("Loading video stream...");
+    startStreamDirect(val);
+  }
+}
+
+function startStreamDirect(url) {
   playerType = "direct";
   video.src = url;
   video.load();
