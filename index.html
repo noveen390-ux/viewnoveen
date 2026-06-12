@@ -346,7 +346,7 @@ input,button{font-family:inherit;font-size:14px}
           <button class="btn source-btn" data-source="youtube" style="width:auto;padding:8px 20px" onclick="selectSource('youtube')">YouTube</button>
           <button class="btn source-btn" data-source="drive" style="width:auto;padding:8px 20px" onclick="selectSource('drive')">Drive</button>
           <button class="btn source-btn" data-source="vk" style="width:auto;padding:8px 20px" onclick="selectSource('vk')">VK</button>
-          <button class="btn source-btn" data-source="dailymotion" style="width:auto;padding:8px 20px" onclick="selectSource('dailymotion')">Dailymotion</button>
+          <button class="btn source-btn" data-source="archive" style="width:auto;padding:8px 20px" onclick="selectSource('archive')">Archive</button>
         </div>
 
         <!-- Upload -->
@@ -386,12 +386,12 @@ input,button{font-family:inherit;font-size:14px}
           </div>
         </div>
 
-        <!-- Dailymotion -->
-        <div id="dmSection" class="hidden" style="padding:16px 0">
-          <p style="margin-bottom:12px;color:var(--text2)">Paste a Dailymotion video URL</p>
+        <!-- Archive.org -->
+        <div id="archiveSection" class="hidden" style="padding:16px 0">
+          <p style="margin-bottom:12px;color:var(--text2)">Paste an Archive.org video URL</p>
           <div style="display:flex;gap:8px;max-width:500px;margin:0 auto">
-            <input type="text" id="dmInput" placeholder="https://www.dailymotion.com/video/... or dai.ly/..." style="flex:1">
-            <button class="btn" style="width:auto;padding:10px 20px" onclick="loadDm()">Load</button>
+            <input type="text" id="archiveInput" placeholder="https://archive.org/details/... or .../download/....mp4" style="flex:1">
+            <button class="btn" style="width:auto;padding:10px 20px" onclick="loadArchive()">Load</button>
           </div>
         </div>
       </div>
@@ -401,9 +401,6 @@ input,button{font-family:inherit;font-size:14px}
         <div id="youtubePlayer" class="hidden" style="width:100%;height:100%;position:absolute;inset:0"></div>
         <div id="vkPlayer" class="hidden" style="width:100%;height:100%;position:absolute;inset:0">
           <iframe id="vkFrame" style="width:100%;height:100%;border:none" allow="autoplay; fullscreen" allowfullscreen></iframe>
-        </div>
-        <div id="dmPlayer" class="hidden" style="width:100%;height:100%;position:absolute;inset:0">
-          <iframe id="dmFrame" style="width:100%;height:100%;border:none" allow="autoplay; fullscreen" allowfullscreen></iframe>
         </div>
         <!-- Waiting overlay (viewers) -->
         <div id="waitOverlay" class="hidden center-msg" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.7);z-index:5">
@@ -475,15 +472,6 @@ let vkPlayer = null;
 let vkReady = false;
 let vkInterval = null;
 let vkApiLoaded = false;
-let dmReady = false;
-let dmDuration = 1;
-let dmPlaying = false;
-let dmCurrentTime = 0;
-let dmInterval = null;
-let dmAdPlaying = false;
-let dmAdTimer = null;
-let dmViewerInterval = null;
-let dmSyncTarget = null;
 let pendingState = null;
 let intentionalLeave = false;
 
@@ -622,13 +610,15 @@ function reclaimHost() {
             if (vkApiLoaded) { clearInterval(check); createVKPlayer(res.meta.oid, res.meta.id); }
           }, 200);
         }
-      } else if (res.meta.source === "dailymotion") {
-        playerType = "dailymotion";
+      } else if (res.meta.source === "archive") {
+        playerType = "archive";
         $("uploadArea").classList.add("hidden");
         $("playerArea").classList.remove("hidden");
         $("waitOverlay").classList.add("hidden");
         liveBadge.classList.remove("hidden");
-        createDMPlayer(res.meta.videoId);
+        video.classList.remove("hidden");
+        video.src = res.meta.url;
+        video.load();
       } else {
         playerType = "upload";
         $("uploadArea").classList.remove("hidden");
@@ -649,9 +639,6 @@ function reclaimHost() {
         vkPlayer.seek(res.state.t);
         if (res.state.p) vkPlayer.play();
         else vkPlayer.pause();
-      } else if (res.meta && res.meta.source === "dailymotion") {
-        if (!dmReady) { pendingState = { t: res.state.t, p: res.state.p }; }
-        else { dmSyncTarget = { t: res.state.t, p: res.state.p }; }
       } else {
         if (res.state.p) {
           video.currentTime = res.state.t;
@@ -683,8 +670,6 @@ function enterRoom() {
         socket.emit("sync-state", { t: ytPlayer.getCurrentTime(), p: ytPlayer.getPlayerState() === YT.PlayerState.PLAYING });
       } else if (playerType === "vk" && vkPlayer && vkPlayer.getCurrentTime) {
         socket.emit("sync-state", { t: vkPlayer.getCurrentTime(), p: vkPlayer.getState() === "playing" });
-      } else if (playerType === "dailymotion" && dmDuration && !dmAdPlaying && dmReady) {
-        socket.emit("sync-state", { t: dmCurrentTime, p: dmPlaying });
       } else if (video.duration) {
         socket.emit("sync-state", { t: video.currentTime, p: !video.paused });
       }
@@ -770,7 +755,6 @@ function changeVideo() {
   if (!isHost) return;
   destroyYTPlayer();
   destroyVKPlayer();
-  destroyDMPlayer();
   if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
   video.pause();
   video.src = "";
@@ -798,7 +782,7 @@ function changeVideo() {
   $("youtubeInput").value = "";
   $("driveInput").value = "";
   $("vkInput").value = "";
-  $("dmInput").value = "";
+  $("archiveInput").value = "";
 }
 
 // ==================== FULLSCREEN ====================
@@ -839,10 +823,6 @@ function togglePlay() {
   } else if (playerType === "vk" && vkPlayer && vkPlayer.getState) {
     if (vkPlayer.getState() === "playing") vkPlayer.pause();
     else vkPlayer.play();
-  } else if (playerType === "dailymotion") {
-    if (dmAdPlaying) return;
-    if (dmPlaying) dmCommand("pause");
-    else dmCommand("play");
   } else if (video.paused) {
     video.play();
   } else {
@@ -858,8 +838,6 @@ function onSeek() {
     ytPlayer.seekTo(t, true);
   } else if (playerType === "vk" && vkPlayer && vkPlayer.seek) {
     vkPlayer.seek(t);
-  } else if (playerType === "dailymotion") {
-    dmCommand("seek", [t]);
   } else {
     video.currentTime = t;
   }
@@ -870,20 +848,20 @@ function onSeek() {
 
 video.addEventListener("play", () => {
   playBtn.innerHTML = "\u23F8";
-  if (isHost && !ignoreNext && playerType !== "youtube" && playerType !== "vk" && playerType !== "dailymotion") socket.emit("play", video.currentTime);
+  if (isHost && !ignoreNext && playerType !== "youtube" && playerType !== "vk") socket.emit("play", video.currentTime);
 });
 
 video.addEventListener("pause", () => {
   playBtn.innerHTML = "\u25B6";
-  if (isHost && !ignoreNext && playerType !== "youtube" && playerType !== "vk" && playerType !== "dailymotion") socket.emit("pause", video.currentTime);
+  if (isHost && !ignoreNext && playerType !== "youtube" && playerType !== "vk") socket.emit("pause", video.currentTime);
 });
 
 video.addEventListener("seeked", () => {
-  if (isHost && !localSeek && !ignoreNext && playerType !== "youtube" && playerType !== "vk" && playerType !== "dailymotion") socket.emit("seek", video.currentTime);
+  if (isHost && !localSeek && !ignoreNext && playerType !== "youtube" && playerType !== "vk") socket.emit("seek", video.currentTime);
 });
 
 video.addEventListener("timeupdate", () => {
-  if (!video.duration || playerType === "youtube" || playerType === "vk" || playerType === "dailymotion") return;
+  if (!video.duration || playerType === "youtube" || playerType === "vk") return;
   if (!localSeek) seekbar.value = (video.currentTime / video.duration) * 1000;
   timeDisplay.textContent = `${fmtTime(video.currentTime)} / ${fmtTime(video.duration)}`;
 });
@@ -914,7 +892,7 @@ function selectSource(type) {
   $("youtubeSection").classList.toggle("hidden", type !== "youtube");
   $("driveSection").classList.toggle("hidden", type !== "drive");
   $("vkSection").classList.toggle("hidden", type !== "vk");
-  $("dmSection").classList.toggle("hidden", type !== "dailymotion");
+  $("archiveSection").classList.toggle("hidden", type !== "archive");
 }
 
 function extractYouTubeId(val) {
@@ -1006,34 +984,50 @@ function loadVk() {
   $("changeBtn").classList.remove("hidden");
 }
 
-function extractDmId(val) {
-  const patterns = [
-    /dailymotion\.com\/video\/([a-zA-Z0-9]+)/,
-    /dai\.ly\/([a-zA-Z0-9]+)/,
-    /dailymotion\.com\/embed\/video\/([a-zA-Z0-9]+)/,
-  ];
-  for (const p of patterns) {
-    const m = val.trim().match(p);
-    if (m) return m[1];
-  }
+function extractArchiveId(val) {
+  const m1 = val.trim().match(/archive\.org\/details\/([a-zA-Z0-9_.-]+)/);
+  if (m1) return { id: m1[1], type: "details" };
+  const m2 = val.trim().match(/archive\.org\/download\/([a-zA-Z0-9_.-]+)\/(.+)/);
+  if (m2) return { id: m2[1], file: m2[2], type: "direct" };
   return null;
 }
 
-function loadDm() {
+function loadArchive() {
   if (!isHost) return;
-  const val = $("dmInput").value.trim();
-  if (!val) return toast("Enter a Dailymotion video URL");
-  const videoId = extractDmId(val);
-  if (!videoId) return toast("Invalid Dailymotion URL");
-  socket.emit("meta", { source: "dailymotion", videoId });
-  // Create player locally for host (meta event is broadcast to others only)
-  playerType = "dailymotion";
-  $("uploadArea").classList.add("hidden");
+  const val = $("archiveInput").value.trim();
+  if (!val) return toast("Enter an Archive.org URL");
+  const info = extractArchiveId(val);
+  if (!info) return toast("Invalid Archive.org URL");
+
+  if (info.type === "direct") {
+    startArchive(`https://archive.org/download/${info.id}/${info.file}`);
+  } else {
+    const url = `https://archive.org/metadata/${info.id}`;
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        const files = data.files || [];
+        const mp4 = files.find(f => /\.mp4$/i.test(f.name) && f.source === "original");
+        if (!mp4) return toast("No MP4 video found in this Archive.org item");
+        startArchive(`https://archive.org/download/${info.id}/${mp4.name}`);
+      })
+      .catch(() => toast("Failed to fetch Archive.org metadata"));
+  }
+}
+
+function startArchive(url) {
+  playerType = "archive";
+  video.src = url;
+  video.load();
+  video.classList.remove("hidden");
+  $("youtubePlayer").classList.add("hidden");
+  $("vkPlayer").classList.add("hidden");
   $("playerArea").classList.remove("hidden");
+  $("uploadArea").classList.add("hidden");
   $("waitOverlay").classList.add("hidden");
   liveBadge.classList.remove("hidden");
-  createDMPlayer(videoId);
   $("changeBtn").classList.remove("hidden");
+  socket.emit("meta", { source: "archive", url });
 }
 
 // ==================== YOUTUBE API ====================
@@ -1107,7 +1101,6 @@ function updateYTTime() {
 function getDuration() {
   if (playerType === "youtube" && ytPlayer && ytPlayer.getDuration) return ytPlayer.getDuration() || 1;
   if (playerType === "vk" && vkPlayer && vkPlayer.getDuration) return vkPlayer.getDuration() || 1;
-  if (playerType === "dailymotion") return dmDuration;
   return video.duration || 1;
 }
 
@@ -1186,142 +1179,7 @@ function updateVKTime() {
   }
 }
 
-// ==================== DAILYMOTION API ====================
-function createDMPlayer(videoId) {
-  destroyDMPlayer();
-  $("dmPlayer").classList.remove("hidden");
-  video.classList.add("hidden");
-  const iframe = document.getElementById("dmFrame");
-  iframe.src = `https://www.dailymotion.com/embed/video/${videoId}?api=postMessage&controls=false&autoplay=false&ads=0&queue-autoplay-next=0`;
-  if (dmInterval) clearInterval(dmInterval);
-  dmInterval = setInterval(() => {
-    if (dmDuration > 1 && playerType === "dailymotion") {
-      if (!localSeek) seekbar.value = (dmCurrentTime / dmDuration) * 1000;
-      timeDisplay.textContent = `${fmtTime(dmCurrentTime)} / ${fmtTime(dmDuration)}`;
-    }
-  }, 250);
-  // Fallback: force ready after 10s if ads prevented detection
-  dmAdTimer = setTimeout(() => {
-    if (!dmReady) {
-      dmReady = true;
-      dmAdPlaying = false;
-      if (pendingState) {
-        dmSyncTarget = { t: pendingState.t, p: pendingState.p };
-        pendingState = null;
-      }
-    }
-  }, 10000);
-
-  // Viewer-side correction loop: every 1s force DM player to match host state
-  if (!isHost) {
-    if (dmViewerInterval) clearInterval(dmViewerInterval);
-    dmViewerInterval = setInterval(() => {
-      if (playerType !== "dailymotion" || !dmReady || dmAdPlaying || !dmSyncTarget) return;
-      const diff = Math.abs(dmCurrentTime - dmSyncTarget.t);
-      if (diff > 2) dmCommand("seek", [dmSyncTarget.t]);
-      if (dmSyncTarget.p && !dmPlaying) dmCommand("play");
-      else if (!dmSyncTarget.p && dmPlaying) dmCommand("pause");
-    }, 1000);
-  }
-}
-
-function destroyDMPlayer() {
-  if (dmInterval) { clearInterval(dmInterval); dmInterval = null; }
-  if (dmAdTimer) { clearTimeout(dmAdTimer); dmAdTimer = null; }
-  if (dmViewerInterval) { clearInterval(dmViewerInterval); dmViewerInterval = null; }
-  dmReady = false;
-  dmDuration = 1;
-  dmCurrentTime = 0;
-  dmPlaying = false;
-  dmAdPlaying = false;
-  dmSyncTarget = null;
-  const iframe = document.getElementById("dmFrame");
-  if (iframe) { iframe.src = ""; iframe.onload = null; }
-  $("dmPlayer").classList.add("hidden");
-  video.classList.remove("hidden");
-}
-
-function dmCommand(cmd, params) {
-  const iframe = document.getElementById("dmFrame");
-  if (iframe && iframe.contentWindow) {
-    iframe.contentWindow.postMessage(JSON.stringify({ command: cmd, parameters: params || [] }), "*");
-  }
-}
-
-window.addEventListener("message", function dmListener(e) {
-  if (e.origin !== "https://www.dailymotion.com" && e.origin !== "https://dailymotion.com") return;
-  let data;
-  try { data = typeof e.data === "string" ? JSON.parse(e.data) : e.data; } catch (_) { return; }
-  if (!data || !data.event) return;
-
-  // Track ad state
-  if (data.event === "ad_start") {
-    dmAdPlaying = true;
-    return;
-  }
-  if (data.event === "ad_end" || data.event === "video_start") {
-    dmAdPlaying = false;
-    // Ad finished — mark ready and flush pending state
-    if (!dmReady) {
-      dmReady = true;
-      if (dmAdTimer) { clearTimeout(dmAdTimer); dmAdTimer = null; }
-      if (data.duration) dmDuration = data.duration;
-      if (pendingState) {
-        dmSyncTarget = { t: pendingState.t, p: pendingState.p };
-        pendingState = null;
-      }
-    }
-    // Don't return — the ad_end may be followed by a playing event, let it fall through
-  }
-
-  // Ignore events during ad playback to avoid false sync
-  if (dmAdPlaying) return;
-
-  const hasDuration = data.duration && data.duration > 1;
-
-  // Mark ready when we get a content event with valid duration (and no ad is playing)
-  if (!dmReady && (data.event === "playing" || data.event === "pause" || (data.event === "timeupdate" && hasDuration))) {
-    dmReady = true;
-    if (dmAdTimer) { clearTimeout(dmAdTimer); dmAdTimer = null; }
-    if (data.duration) dmDuration = data.duration;
-    if (pendingState) {
-      dmSyncTarget = { t: pendingState.t, p: pendingState.p };
-      pendingState = null;
-    }
-  }
-
-  if (data.event === "playing") {
-    if (playerType !== "dailymotion") return;
-    dmPlaying = true;
-    if (data.duration) dmDuration = data.duration;
-    if (data.time !== undefined) dmCurrentTime = data.time;
-    if (isHost && !ignoreNext) {
-      playBtn.innerHTML = "\u23F8";
-      socket.emit("play", data.time || 0);
-    }
-  }
-  if (data.event === "pause") {
-    if (playerType !== "dailymotion") return;
-    dmPlaying = false;
-    if (data.duration) dmDuration = data.duration;
-    if (data.time !== undefined) dmCurrentTime = data.time;
-    if (isHost && !ignoreNext) {
-      playBtn.innerHTML = "\u25B6";
-      socket.emit("pause", data.time || 0);
-    }
-  }
-  if (data.event === "timeupdate") {
-    if (playerType !== "dailymotion") return;
-    dmDuration = data.duration || dmDuration;
-    dmCurrentTime = data.time || 0;
-    if (!localSeek && data.duration) seekbar.value = (dmCurrentTime / data.duration) * 1000;
-    timeDisplay.textContent = `${fmtTime(data.time || 0)} / ${fmtTime(data.duration || 0)}`;
-  }
-  if (data.event === "ended" && isHost && playerType === "dailymotion") {
-    playBtn.innerHTML = "\u25B6";
-    dmPlaying = false;
-  }
-});
+// ==================== ARCHIVE.ORG ====================
 
 // ==================== SOCKET EVENTS ====================
 socket.on("meta", (m) => {
@@ -1381,14 +1239,16 @@ socket.on("meta", (m) => {
     return;
   }
 
-  // Dailymotion source
-  if (m.source === "dailymotion") {
-    playerType = "dailymotion";
+  // Archive.org source
+  if (m.source === "archive") {
+    playerType = "archive";
     $("playerArea").classList.remove("hidden");
     $("uploadArea").classList.add("hidden");
     $("waitOverlay").classList.add("hidden");
     liveBadge.classList.remove("hidden");
-    createDMPlayer(m.videoId);
+    video.classList.remove("hidden");
+    video.src = m.url;
+    video.load();
     return;
   }
 
@@ -1446,9 +1306,6 @@ socket.on("play", (t) => {
   } else if (playerType === "vk" && vkPlayer && vkPlayer.seek) {
     vkPlayer.seek(t);
     vkPlayer.play();
-  } else if (playerType === "dailymotion") {
-    if (!dmReady) { pendingState = { t, p: true }; }
-    else { dmSyncTarget = { t, p: true }; }
   } else {
     video.currentTime = t;
     video.play().catch(() => {});
@@ -1464,9 +1321,6 @@ socket.on("pause", (t) => {
   } else if (playerType === "vk" && vkPlayer && vkPlayer.seek) {
     vkPlayer.seek(t);
     vkPlayer.pause();
-  } else if (playerType === "dailymotion") {
-    if (!dmReady) { pendingState = { t, p: false }; }
-    else { dmSyncTarget = { t, p: false }; }
   } else {
     video.currentTime = t;
     video.pause();
@@ -1480,9 +1334,6 @@ socket.on("seek", (t) => {
     ytPlayer.seekTo(t, true);
   } else if (playerType === "vk" && vkPlayer && vkPlayer.seek) {
     vkPlayer.seek(t);
-  } else if (playerType === "dailymotion") {
-    if (!dmReady) { pendingState = { t, p: dmPlaying }; }
-    else { dmSyncTarget.t = t; }
   } else {
     video.currentTime = t;
   }
@@ -1521,11 +1372,6 @@ socket.on("sync-state", ({ t, p }) => {
     }
     return;
   }
-  if (playerType === "dailymotion") {
-    if (!dmReady) { pendingState = { t, p }; return; }
-    dmSyncTarget = { t, p };
-    return;
-  }
   if (!$("playerArea").classList.contains("hidden") && !$("waitOverlay").classList.contains("hidden")) return;
   const diff = Math.abs(video.currentTime - t);
   if (diff > 2 && video.duration) {
@@ -1554,10 +1400,7 @@ socket.on("state", (s) => {
     } else {
       pendingState = s;
     }
-  } else if (playerType === "dailymotion") {
-    if (!dmReady) { pendingState = { t: s.t, p: s.p }; }
-    else { dmSyncTarget = { t: s.t, p: s.p }; }
-  } else if (!playerType || playerType === "upload" || playerType === "drive") {
+  } else if (playerType !== "youtube" && playerType !== "vk") {
     if (s.p) {
       video.currentTime = s.t;
       video.play().catch(() => {});
@@ -1579,7 +1422,6 @@ socket.on("chat", ({ n, m, id }) => {
 socket.on("reset", () => {
   destroyYTPlayer();
   destroyVKPlayer();
-  destroyDMPlayer();
   if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
   video.pause();
   video.src = "";
