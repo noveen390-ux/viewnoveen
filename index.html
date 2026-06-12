@@ -347,6 +347,7 @@ input,button{font-family:inherit;font-size:14px}
           <button class="btn source-btn" data-source="drive" style="width:auto;padding:8px 20px" onclick="selectSource('drive')">Drive</button>
           <button class="btn source-btn" data-source="vk" style="width:auto;padding:8px 20px" onclick="selectSource('vk')">VK</button>
           <button class="btn source-btn" data-source="archive" style="width:auto;padding:8px 20px" onclick="selectSource('archive')">Archive</button>
+          <button class="btn source-btn" data-source="direct" style="width:auto;padding:8px 20px" onclick="selectSource('direct')">Direct</button>
         </div>
 
         <!-- Upload -->
@@ -392,6 +393,15 @@ input,button{font-family:inherit;font-size:14px}
           <div style="display:flex;gap:8px;max-width:500px;margin:0 auto">
             <input type="text" id="archiveInput" placeholder="https://archive.org/details/... or .../download/....mp4" style="flex:1">
             <button class="btn" style="width:auto;padding:10px 20px" onclick="loadArchive()">Load</button>
+          </div>
+        </div>
+
+        <!-- Direct URL -->
+        <div id="directSection" class="hidden" style="padding:16px 0">
+          <p style="margin-bottom:12px;color:var(--text2)">Paste a direct video stream URL</p>
+          <div style="display:flex;gap:8px;max-width:500px;margin:0 auto">
+            <input type="text" id="directInput" placeholder="https://example.com/video.mp4 or .m3u8" style="flex:1">
+            <button class="btn" style="width:auto;padding:10px 20px" onclick="loadDirect()">Load</button>
           </div>
         </div>
       </div>
@@ -619,6 +629,15 @@ function reclaimHost() {
         video.classList.remove("hidden");
         video.src = res.meta.url;
         video.load();
+      } else if (res.meta.source === "direct") {
+        playerType = "direct";
+        $("uploadArea").classList.add("hidden");
+        $("playerArea").classList.remove("hidden");
+        $("waitOverlay").classList.add("hidden");
+        liveBadge.classList.remove("hidden");
+        video.classList.remove("hidden");
+        video.src = res.meta.url;
+        video.load();
       } else {
         playerType = "upload";
         $("uploadArea").classList.remove("hidden");
@@ -783,6 +802,7 @@ function changeVideo() {
   $("driveInput").value = "";
   $("vkInput").value = "";
   $("archiveInput").value = "";
+  $("directInput").value = "";
 }
 
 // ==================== FULLSCREEN ====================
@@ -893,6 +913,7 @@ function selectSource(type) {
   $("driveSection").classList.toggle("hidden", type !== "drive");
   $("vkSection").classList.toggle("hidden", type !== "vk");
   $("archiveSection").classList.toggle("hidden", type !== "archive");
+  $("directSection").classList.toggle("hidden", type !== "direct");
 }
 
 function extractYouTubeId(val) {
@@ -1028,6 +1049,46 @@ function startArchive(url) {
   liveBadge.classList.remove("hidden");
   $("changeBtn").classList.remove("hidden");
   socket.emit("meta", { source: "archive", url });
+}
+
+// ==================== DIRECT URL ====================
+function loadDirect() {
+  if (!isHost) return;
+  const val = $("directInput").value.trim();
+  if (!val) return toast("Enter a video URL");
+  if (!val.startsWith("http://") && !val.startsWith("https://")) return toast("URL must start with http:// or https://");
+
+  // Detect YouTube URLs and route to YouTube player
+  const ytId = extractYouTubeId(val);
+  if (ytId) {
+    socket.emit("meta", { source: "youtube", videoId: ytId });
+    playerType = "youtube";
+    $("uploadArea").classList.add("hidden");
+    $("playerArea").classList.remove("hidden");
+    $("waitOverlay").classList.add("hidden");
+    liveBadge.classList.remove("hidden");
+    if (ytApiReady) createYTPlayer(ytId);
+    else { loadYouTubeAPI(); const check = setInterval(() => { if (ytApiReady) { clearInterval(check); createYTPlayer(ytId); } }, 200); }
+    $("changeBtn").classList.remove("hidden");
+    return;
+  }
+
+  startDirect(val);
+}
+
+function startDirect(url) {
+  playerType = "direct";
+  video.src = url;
+  video.load();
+  video.classList.remove("hidden");
+  $("youtubePlayer").classList.add("hidden");
+  $("vkPlayer").classList.add("hidden");
+  $("playerArea").classList.remove("hidden");
+  $("uploadArea").classList.add("hidden");
+  $("waitOverlay").classList.add("hidden");
+  liveBadge.classList.remove("hidden");
+  $("changeBtn").classList.remove("hidden");
+  socket.emit("meta", { source: "direct", url });
 }
 
 // ==================== YOUTUBE API ====================
@@ -1242,6 +1303,19 @@ socket.on("meta", (m) => {
   // Archive.org source
   if (m.source === "archive") {
     playerType = "archive";
+    $("playerArea").classList.remove("hidden");
+    $("uploadArea").classList.add("hidden");
+    $("waitOverlay").classList.add("hidden");
+    liveBadge.classList.remove("hidden");
+    video.classList.remove("hidden");
+    video.src = m.url;
+    video.load();
+    return;
+  }
+
+  // Direct URL source
+  if (m.source === "direct") {
+    playerType = "direct";
     $("playerArea").classList.remove("hidden");
     $("uploadArea").classList.add("hidden");
     $("waitOverlay").classList.add("hidden");
