@@ -170,7 +170,14 @@ app.get("/proxy", async (req, res) => {
   // Suppress write-after-destroy errors (client disconnect = expected, not a crash)
   res.on("error", () => {});
   try {
-    const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
+    const parsed = new URL(url);
+    const origin = parsed.origin;
+    const referer = origin + "/";
+    const headers = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Referer": referer,
+      "Origin": origin,
+    };
 
     // === CHECK MODE: HEAD + manual redirects, returns JSON ===
     if (req.query.check === "1") {
