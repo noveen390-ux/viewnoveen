@@ -419,23 +419,11 @@ input,button{font-family:inherit;font-size:14px}
 
         <!-- Stremio -->
         <div id="stremioSection" class="hidden" style="padding:16px 0">
-          <p style="margin-bottom:12px;color:var(--text2)">Load streams from a Stremio addon</p>
-          <div style="display:flex;flex-direction:column;gap:8px;max-width:500px;margin:0 auto">
-            <input type="text" id="stremioAddonInput" placeholder="Addon URL (e.g. https://torrentio.strem.fun)" style="flex:1">
-            <div style="display:flex;gap:8px">
-              <input type="text" id="stremioIdInput" placeholder="IMDB ID (e.g. tt0111161)" style="flex:1">
-              <select id="stremioTypeSelect" style="flex:0 0 auto;padding:8px 12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius)" onchange="showStremioSeasonEp()">
-                <option value="movie">Movie</option>
-                <option value="series">Series</option>
-              </select>
-            </div>
-            <div id="stremioSeasonEp" class="hidden" style="display:flex;gap:8px">
-              <input type="number" id="stremioSeasonInput" placeholder="Season" min="1" value="1" style="flex:0 0 90px;padding:8px 12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius)">
-              <input type="number" id="stremioEpisodeInput" placeholder="Episode" min="1" value="1" style="flex:0 0 90px;padding:8px 12px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius)">
-            </div>
-            <button class="btn" style="width:auto;padding:10px 20px;align-self:center" onclick="loadStremio()">Find Streams</button>
+          <p style="margin-bottom:12px;color:var(--text2)">Paste a stream link from Stremio (direct URL, magnet, infoHash, YouTube)</p>
+          <div style="display:flex;gap:8px;max-width:500px;margin:0 auto">
+            <input type="text" id="stremioInput" placeholder="Paste any stream link here..." style="flex:1">
+            <button class="btn" style="width:auto;padding:10px 20px" onclick="playStremioLink()">Play</button>
           </div>
-          <div id="stremioResults" class="hidden" style="margin-top:16px;max-height:300px;overflow-y:auto;text-align:left"></div>
         </div>
       </div>
       <!-- Player -->
@@ -853,10 +841,7 @@ function changeVideo() {
   $("torrentInput").value = "";
   $("torrentStatus").classList.add("hidden");
   if (torrentClient && torrentObj) { torrentObj.destroy(); torrentObj = null; }
-  $("stremioAddonInput").value = "";
-  $("stremioIdInput").value = "";
-  $("stremioResults").classList.add("hidden");
-  $("stremioResults").innerHTML = "";
+  $("stremioInput").value = "";
 }
 
 // ==================== FULLSCREEN ====================
@@ -1190,70 +1175,36 @@ function startTorrent(torrentId) {
 }
 
 // ==================== STREMIO ====================
-function showStremioSeasonEp() {
-  $("stremioSeasonEp").classList.toggle("hidden", $("stremioTypeSelect").value !== "series");
-}
-
-function loadStremio() {
+function playStremioLink() {
   if (!isHost) return;
-  const addonUrl = $("stremioAddonInput").value.trim();
-  const contentId = $("stremioIdInput").value.trim();
-  const type = $("stremioTypeSelect").value;
-  if (!addonUrl) return toast("Enter a Stremio addon URL");
-  if (!contentId) return toast("Enter an IMDB ID");
-  const base = addonUrl.replace(/\/manifest\.json\/?$/, "").replace(/\/+$/, "");
-  let streamUrl;
-  if (type === "series") {
-    const s = $("stremioSeasonInput").value || 1;
-    const e = $("stremioEpisodeInput").value || 1;
-    streamUrl = base + "/stream/" + type + "/" + contentId + ":" + s + ":" + e + ".json";
-  } else {
-    streamUrl = base + "/stream/" + type + "/" + contentId + ".json";
-  }
-  $("stremioResults").classList.add("hidden");
-  $("stremioResults").innerHTML = "";
-  toast("Loading streams...");
-  fetch(streamUrl).then(function (r) { return r.json(); }).then(function (data) {
-    if (!data.streams || data.streams.length === 0) return toast("No streams found");
-    var container = $("stremioResults");
-    container.innerHTML = "";
-    container.classList.remove("hidden");
-    data.streams.forEach(function (stream, i) {
-      var btn = document.createElement("button");
-      btn.className = "btn";
-      btn.style.cssText = "width:100%;margin:4px 0;text-align:left;padding:8px 12px;font-size:13px;white-space:normal;word-break:break-all";
-      btn.textContent = stream.name || stream.title || "Stream " + (i + 1);
-      btn.onclick = function () { playStremioStream(stream); };
-      container.appendChild(btn);
-    });
-  }).catch(function (err) { toast("Error: " + err.message); });
-}
+  const val = $("stremioInput").value.trim();
+  if (!val) return toast("Paste a stream link");
 
-function playStremioStream(stream) {
-  if (stream.ytId) {
-    $("youtubeInput").value = stream.ytId;
+  // YouTube
+  const ytId = extractYouTubeId(val);
+  if (ytId) {
+    $("youtubeInput").value = ytId;
     loadYouTube();
     return;
   }
-  if (stream.url) {
-    var ytId = extractYouTubeId(stream.url);
-    if (ytId) { $("youtubeInput").value = ytId; loadYouTube(); return; }
-    if (stream.url.startsWith("magnet:?")) {
-      $("torrentInput").value = stream.url;
-      loadTorrent();
-      return;
-    }
-    $("directInput").value = stream.url;
-    loadDirect();
-    return;
-  }
-  if (stream.infoHash) {
-    var magnet = "magnet:?xt=urn:btih:" + stream.infoHash;
-    $("torrentInput").value = magnet;
+
+  // Magnet link
+  if (val.startsWith("magnet:?")) {
+    $("torrentInput").value = val;
     loadTorrent();
     return;
   }
-  toast("No playable stream format found");
+
+  // InfoHash (40-char hex)
+  if (/^[a-fA-F0-9]{40}$/.test(val)) {
+    $("torrentInput").value = val;
+    loadTorrent();
+    return;
+  }
+
+  // Direct URL (video, HLS, or any other stream URL)
+  $("directInput").value = val;
+  loadDirect();
 }
 
 // ==================== YOUTUBE API ====================
