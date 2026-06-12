@@ -348,6 +348,7 @@ input,button{font-family:inherit;font-size:14px}
           <button class="btn source-btn" data-source="vk" style="width:auto;padding:8px 20px" onclick="selectSource('vk')">VK</button>
           <button class="btn source-btn" data-source="archive" style="width:auto;padding:8px 20px" onclick="selectSource('archive')">Archive</button>
           <button class="btn source-btn" data-source="direct" style="width:auto;padding:8px 20px" onclick="selectSource('direct')">Direct</button>
+          <button class="btn source-btn" data-source="torrent" style="width:auto;padding:8px 20px" onclick="selectSource('torrent')">Torrent</button>
         </div>
 
         <!-- Upload -->
@@ -404,6 +405,16 @@ input,button{font-family:inherit;font-size:14px}
             <button class="btn" style="width:auto;padding:10px 20px" onclick="loadDirect()">Load</button>
           </div>
         </div>
+
+        <!-- Torrent -->
+        <div id="torrentSection" class="hidden" style="padding:16px 0">
+          <p style="margin-bottom:12px;color:var(--text2)">Paste a magnet link or infoHash</p>
+          <div style="display:flex;gap:8px;max-width:500px;margin:0 auto">
+            <input type="text" id="torrentInput" placeholder="magnet:?xt=urn:btih:... or 40-char hex hash" style="flex:1">
+            <button class="btn" style="width:auto;padding:10px 20px" onclick="loadTorrent()">Load</button>
+          </div>
+          <div id="torrentStatus" class="hidden" style="margin-top:12px;color:var(--text2)"></div>
+        </div>
       </div>
       <!-- Player -->
       <div id="playerArea" class="hidden" style="width:100%;height:100%;position:relative">
@@ -450,6 +461,8 @@ input,button{font-family:inherit;font-size:14px}
 <div id="reconnectBar" class="hidden" style="position:fixed;top:0;left:0;right:0;z-index:10000;background:rgba(88,101,242,0.9);color:#fff;text-align:center;padding:3px 12px;font-size:12px;font-weight:500;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)">Reconnecting...</div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js">
+</script>
 <script>
 // ==================== STATE ====================
 const socket = io({
@@ -482,6 +495,8 @@ let vkPlayer = null;
 let vkReady = false;
 let vkInterval = null;
 let vkApiLoaded = false;
+let torrentClient = null;
+let torrentObj = null;
 let pendingState = null;
 let intentionalLeave = false;
 
@@ -638,6 +653,16 @@ function reclaimHost() {
         video.classList.remove("hidden");
         video.src = res.meta.url;
         video.load();
+      } else if (res.meta.source === "torrent") {
+        playerType = "torrent";
+        $("uploadArea").classList.add("hidden");
+        $("playerArea").classList.remove("hidden");
+        $("waitOverlay").classList.remove("hidden");
+        $("waitMsg").textContent = "Reconnecting to torrent...";
+        video.classList.add("hidden");
+        $("youtubePlayer").classList.add("hidden");
+        $("vkPlayer").classList.add("hidden");
+        startTorrent(res.meta.torrentId);
       } else {
         playerType = "upload";
         $("uploadArea").classList.remove("hidden");
@@ -803,6 +828,9 @@ function changeVideo() {
   $("vkInput").value = "";
   $("archiveInput").value = "";
   $("directInput").value = "";
+  $("torrentInput").value = "";
+  $("torrentStatus").classList.add("hidden");
+  if (torrentClient && torrentObj) { torrentObj.destroy(); torrentObj = null; }
 }
 
 // ==================== FULLSCREEN ====================
@@ -914,6 +942,7 @@ function selectSource(type) {
   $("vkSection").classList.toggle("hidden", type !== "vk");
   $("archiveSection").classList.toggle("hidden", type !== "archive");
   $("directSection").classList.toggle("hidden", type !== "direct");
+  $("torrentSection").classList.toggle("hidden", type !== "torrent");
 }
 
 function extractYouTubeId(val) {
@@ -1089,6 +1118,48 @@ function startDirect(url) {
   liveBadge.classList.remove("hidden");
   $("changeBtn").classList.remove("hidden");
   socket.emit("meta", { source: "direct", url });
+}
+
+// ==================== TORRENT ====================
+function loadTorrent() {
+  if (!isHost) return;
+  const val = $("torrentInput").value.trim();
+  if (!val) return toast("Enter a magnet link or infoHash");
+  const isMagnet = val.startsWith("magnet:?");
+  const isHash = /^[a-fA-F0-9]{40}$/.test(val);
+  if (!isMagnet && !isHash) return toast("Enter a valid magnet link or 40-char infoHash");
+  startTorrent(val);
+}
+
+function startTorrent(torrentId) {
+  if (!window.WebTorrent) return toast("WebTorrent not loaded. Check your internet connection.");
+  playerType = "torrent";
+  $("playerArea").classList.remove("hidden");
+  $("uploadArea").classList.add("hidden");
+  $("waitOverlay").classList.remove("hidden");
+  $("waitMsg").textContent = "Connecting to torrent peers...";
+  video.classList.add("hidden");
+  $("youtubePlayer").classList.add("hidden");
+  $("vkPlayer").classList.add("hidden");
+  socket.emit("meta", { source: "torrent", torrentId });
+  if (!torrentClient) torrentClient = new WebTorrent();
+  if (torrentObj) { torrentObj.destroy(); torrentObj = null; }
+  torrentClient.add(torrentId, { announce: [] }, (torrent) => {
+    torrentObj = torrent;
+    const file = torrent.files.find((f) => f.name.match(/\.(mp4|mkv|webm|mov|avi|m4v)$/i));
+    if (!file) { toast("No playable video file found in torrent"); return; }
+    $("waitMsg").textContent = `Downloading "${file.name}"... 0%`;
+    file.renderTo(video, { autoplay: true }, () => {
+      video.classList.remove("hidden");
+      $("waitOverlay").classList.add("hidden");
+      liveBadge.classList.remove("hidden");
+      $("changeBtn").classList.remove("hidden");
+    });
+    file.on("progress", () => {
+      $("waitMsg").textContent = `Downloading "${file.name}"... ${Math.round(file.progress * 100)}%`;
+    });
+  });
+  torrentClient.on("error", (err) => { toast("Torrent error: " + err.message); });
 }
 
 // ==================== YOUTUBE API ====================
@@ -1323,6 +1394,19 @@ socket.on("meta", (m) => {
     video.classList.remove("hidden");
     video.src = m.url;
     video.load();
+    return;
+  }
+
+  // Torrent source
+  if (m.source === "torrent") {
+    playerType = "torrent";
+    $("playerArea").classList.remove("hidden");
+    $("uploadArea").classList.add("hidden");
+    $("waitOverlay").classList.remove("hidden");
+    $("waitMsg").textContent = "Host is loading torrent...";
+    video.classList.add("hidden");
+    $("youtubePlayer").classList.add("hidden");
+    $("vkPlayer").classList.add("hidden");
     return;
   }
 

@@ -198,7 +198,7 @@ io.on("connection", (socket) => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
       room.meta = m;
-      if (m.source === "youtube" || m.source === "drive" || m.source === "vk" || m.source === "archive" || m.source === "direct") {
+      if (m.source === "youtube" || m.source === "drive" || m.source === "vk" || m.source === "archive" || m.source === "direct" || m.source === "torrent") {
         room.total = 0;
         room.chunks = [];
       } else {
