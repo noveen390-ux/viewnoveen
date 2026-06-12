@@ -147,6 +147,40 @@ rooms = loadRooms();
 
 app.use(express.static(__dirname));
 
+// Resolve a URL: follow redirects and return final metadata (HEAD-based, no body)
+app.get("/resolve", async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ error: "Missing url" });
+  try {
+    const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
+    let current = url;
+    let lastRes = null;
+    for (let i = 0; i < 20; i++) {
+      const r = await fetch(current, { method: "HEAD", redirect: "manual", headers });
+      if ([301, 302, 303, 307, 308].includes(r.status)) {
+        const loc = r.headers.get("location");
+        if (!loc) { lastRes = r; break; }
+        current = new URL(loc, current).href;
+        continue;
+      }
+      lastRes = r;
+      break;
+    }
+    if (!lastRes) return res.status(502).json({ error: "Redirect chain broken" });
+    const ct = lastRes.headers.get("content-type") || "";
+    const isHls = ct.includes("mpegurl") || ct.includes("mpegURL") || current.toLowerCase().includes(".m3u8");
+    res.json({
+      url: current,
+      status: lastRes.status,
+      contentType: ct,
+      contentLength: lastRes.headers.get("content-length") || "0",
+      isHls,
+    });
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
 // Proxy endpoint for Stremio extract URLs that don't work directly in the browser
 app.get("/proxy", async (req, res) => {
   const url = req.query.url;
@@ -155,6 +189,11 @@ app.get("/proxy", async (req, res) => {
     const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
     if (req.headers.range) headers["Range"] = req.headers.range;
     const upstream = await fetch(url, { redirect: "follow", headers });
+    const ct = upstream.headers.get("content-type") || "";
+    const finalUrl = upstream.url;
+    console.log(`[proxy] req: ${url}`);
+    if (finalUrl !== url) console.log(`[proxy] final: ${finalUrl}`);
+    console.log(`[proxy] status: ${upstream.status}  type: ${ct}  length: ${upstream.headers.get("content-length") || "?"}`);
     ["content-type", "content-length", "content-range", "accept-ranges"].forEach(h => {
       const v = upstream.headers.get(h);
       if (v) res.setHeader(h, v);
@@ -165,6 +204,7 @@ app.get("/proxy", async (req, res) => {
     }
     res.end();
   } catch (e) {
+    console.error(`[proxy] error: ${e.message}`);
     res.status(502).end("Proxy error");
   }
 });

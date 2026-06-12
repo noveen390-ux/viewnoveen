@@ -473,6 +473,8 @@ input,button{font-family:inherit;font-size:14px}
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js">
 </script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js">
+</script>
 <script>
 // ==================== STATE ====================
 const socket = io({
@@ -519,6 +521,15 @@ const playBtn = $("playBtn");
 const liveBadge = $("liveBadge");
 const createBtn = $("createBtn") || document.querySelector(".landing-forms .section:first-child .btn");
 const joinBtn = $("joinBtn") || document.querySelector(".landing-forms .section:last-child .btn");
+
+// Video debug logging
+["loadstart","loadedmetadata","loadeddata","canplay","canplaythrough","play","playing","pause","waiting","stalled","suspend","abort","emptied","seeked","seeking","durationchange","progress","ratechange"].forEach(function(e) {
+  video.addEventListener(e, function() { console.log("[video] " + e + (e==="loadedmetadata"?" d:"+video.duration+" "+video.videoWidth+"x"+video.videoHeight:"")); });
+});
+video.addEventListener("error", function() {
+  var err = video.error;
+  console.log("[video] error:", err ? err.code + " - " + err.message : "unknown");
+});
 
 // Disable buttons until socket connects
 createBtn.disabled = true;
@@ -841,6 +852,7 @@ function changeVideo() {
   $("torrentInput").value = "";
   $("torrentStatus").classList.add("hidden");
   if (torrentClient && torrentObj) { torrentObj.destroy(); torrentObj = null; }
+  if (window.hlsInstance) { window.hlsInstance.destroy(); window.hlsInstance = null; }
   $("stremioInput").value = "";
 }
 
@@ -1202,8 +1214,37 @@ function playStremioLink() {
     return;
   }
 
-  // Route through the server proxy (handles redirects, CORS, and Content-Type issues)
-  startDirect("/proxy?url=" + encodeURIComponent(val));
+  // Resolve via the server to determine stream type
+  toast("Resolving stream URL...");
+  fetch("/resolve?url=" + encodeURIComponent(val)).then(function(r) { return r.json(); }).then(function(info) {
+    console.log("[resolve] final:", info.url, "status:", info.status, "type:", info.contentType, "hls:", info.isHls);
+    if (info.status !== 200) return toast("Stream unavailable (HTTP " + info.status + ")");
+    if (info.isHls && window.Hls && window.Hls.isSupported()) {
+      toast("Loading HLS stream...");
+      var proxyUrl = "/proxy?url=" + encodeURIComponent(val);
+      playerType = "direct";
+      video.classList.remove("hidden");
+      $("youtubePlayer").classList.add("hidden");
+      $("vkPlayer").classList.add("hidden");
+      $("playerArea").classList.remove("hidden");
+      $("uploadArea").classList.add("hidden");
+      $("waitOverlay").classList.add("hidden");
+      liveBadge.classList.remove("hidden");
+      $("changeBtn").classList.remove("hidden");
+      if (window.hlsInstance) { window.hlsInstance.destroy(); }
+      var hls = new Hls();
+      window.hlsInstance = hls;
+      hls.loadSource(proxyUrl);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, function() { video.play(); });
+      socket.emit("meta", { source: "direct", url: proxyUrl, isHls: true });
+    } else {
+      startDirect("/proxy?url=" + encodeURIComponent(val));
+    }
+  }).catch(function(err) {
+    console.error("[resolve] error:", err);
+    toast("Could not resolve stream: " + err.message);
+  });
 }
 
 // ==================== YOUTUBE API ====================
@@ -1436,8 +1477,18 @@ socket.on("meta", (m) => {
     $("waitOverlay").classList.add("hidden");
     liveBadge.classList.remove("hidden");
     video.classList.remove("hidden");
-    video.src = m.url;
-    video.load();
+    // HLS streams need hls.js on non-Safari browsers
+    if (m.isHls && window.Hls && window.Hls.isSupported()) {
+      if (window.hlsInstance) { window.hlsInstance.destroy(); }
+      var h = new Hls();
+      window.hlsInstance = h;
+      h.loadSource(m.url);
+      h.attachMedia(video);
+      h.on(Hls.Events.MANIFEST_PARSED, function() { video.play(); });
+    } else {
+      video.src = m.url;
+      video.load();
+    }
     return;
   }
 
