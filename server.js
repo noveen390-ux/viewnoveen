@@ -156,7 +156,12 @@ app.get("/player", (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).send("Missing url parameter");
   const enc = encodeURIComponent(url);
-  res.send(`<!DOCTYPE html><html><body style="margin:0;background:#000"><video src="/proxy?url=${enc}" controls autoplay style="width:100%;height:100vh"></video></body></html>`);
+  const page = `<!DOCTYPE html><html><body style="margin:0;background:#000">
+<video src="/proxy?url=${enc}" controls autoplay style="width:100%;height:100vh"
+  oncanplay="parent.postMessage('vnsync-video-ready','*')"
+  onerror="parent.postMessage('vnsync-video-ready','*')"></video>
+</body></html>`;
+  res.send(page);
 });
 
 app.use(express.static(__dirname));

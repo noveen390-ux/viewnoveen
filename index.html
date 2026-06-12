@@ -666,8 +666,9 @@ function reclaimHost() {
         playerType = "direct";
         $("uploadArea").classList.add("hidden");
         $("playerArea").classList.remove("hidden");
-        $("waitOverlay").classList.add("hidden");
-        liveBadge.classList.remove("hidden");
+        $("waitOverlay").classList.remove("hidden");
+        $("waitMsg").textContent = "Loading video...";
+        liveBadge.classList.add("hidden");
         video.classList.remove("hidden");
         if (res.meta.isHls && window.Hls && window.Hls.isSupported()) {
           if (window.hlsInstance) { window.hlsInstance.destroy(); }
@@ -762,7 +763,6 @@ function enterRoom() {
     // Start periodic sync
     if (syncTimer) clearInterval(syncTimer);
     syncTimer = setInterval(() => {
-      if (playerType === "direct") return;
       if (playerType === "youtube" && ytPlayer && ytPlayer.getCurrentTime) {
         socket.emit("sync-state", { t: ytPlayer.getCurrentTime(), p: ytPlayer.getPlayerState() === YT.PlayerState.PLAYING });
       } else if (playerType === "vk" && vkPlayer && vkPlayer.getCurrentTime) {
@@ -967,20 +967,20 @@ function onSeek() {
 
 video.addEventListener("play", () => {
   playBtn.innerHTML = "\u23F8";
-  if (isHost && !ignoreNext && playerType !== "youtube" && playerType !== "vk" && playerType !== "direct") socket.emit("play", video.currentTime);
+  if (isHost && !ignoreNext && playerType !== "youtube" && playerType !== "vk") socket.emit("play", video.currentTime);
 });
 
 video.addEventListener("pause", () => {
   playBtn.innerHTML = "\u25B6";
-  if (isHost && !ignoreNext && playerType !== "youtube" && playerType !== "vk" && playerType !== "direct") socket.emit("pause", video.currentTime);
+  if (isHost && !ignoreNext && playerType !== "youtube" && playerType !== "vk") socket.emit("pause", video.currentTime);
 });
 
 video.addEventListener("seeked", () => {
-  if (isHost && !localSeek && !ignoreNext && playerType !== "youtube" && playerType !== "vk" && playerType !== "direct") socket.emit("seek", video.currentTime);
+  if (isHost && !localSeek && !ignoreNext && playerType !== "youtube" && playerType !== "vk") socket.emit("seek", video.currentTime);
 });
 
 video.addEventListener("timeupdate", () => {
-  if (!video.duration || playerType === "youtube" || playerType === "vk" || playerType === "direct") return;
+  if (!video.duration || playerType === "youtube" || playerType === "vk") return;
   if (!localSeek) seekbar.value = (video.currentTime / video.duration) * 1000;
   timeDisplay.textContent = `${fmtTime(video.currentTime)} / ${fmtTime(video.duration)}`;
 });
@@ -996,6 +996,23 @@ video.addEventListener("canplay", () => {
     liveBadge.classList.remove("hidden");
   }
 });
+
+// Listen for iframe video ready signal (from /player page)
+window.addEventListener("message", (e) => {
+  if (e.data === "vnsync-video-ready" || e.data === "vnsync-video-error") {
+    $("waitOverlay").classList.add("hidden");
+    liveBadge.classList.remove("hidden");
+  }
+});
+
+// Fallback: hide overlay after 10s even if video never reports ready
+const overlayTimer = setInterval(() => {
+  if (!$("waitOverlay").classList.contains("hidden")) {
+    $("waitOverlay").classList.add("hidden");
+    liveBadge.classList.remove("hidden");
+    clearInterval(overlayTimer);
+  }
+}, 10000);
 
 function fmtTime(s) {
   if (!s || isNaN(s)) return "0:00";
@@ -1531,9 +1548,10 @@ socket.on("meta", (m) => {
     console.log("meta direct source, url:", m.url, "isHls:", m.isHls, "isDash:", m.isDash);
     $("playerArea").classList.remove("hidden");
     $("uploadArea").classList.add("hidden");
-    $("waitOverlay").classList.add("hidden");
+    $("waitOverlay").classList.remove("hidden");
+    $("waitMsg").textContent = "Loading video...";
     $("controls").classList.add("hidden");
-    liveBadge.classList.remove("hidden");
+    liveBadge.classList.add("hidden");
     video.classList.add("hidden");
     playerType = "direct";
     $("directIframe").src = "/player?url=" + encodeURIComponent(m.url);
