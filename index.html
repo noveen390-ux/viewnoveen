@@ -424,11 +424,6 @@ input,button{font-family:inherit;font-size:14px}
         <div id="vkPlayer" class="hidden" style="width:100%;height:100%;position:absolute;inset:0">
           <iframe id="vkFrame" style="width:100%;height:100%;border:none" allow="autoplay; fullscreen" allowfullscreen></iframe>
         </div>
-        <!-- Waiting overlay (viewers) -->
-        <div id="waitOverlay" class="hidden center-msg" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.7);z-index:5">
-          <div class="icon">&#x23f3;</div>
-          <p id="waitMsg">Waiting for host to share a video...</p>
-        </div>
         <!-- Controls -->
         <div class="controls" id="controls">
           <button id="playBtn" onclick="togglePlay()">&#9654;</button>
@@ -438,6 +433,11 @@ input,button{font-family:inherit;font-size:14px}
           <button id="changeBtn" class="hidden" onclick="changeVideo()" title="Change Video" style="font-size:18px">&#x21bb;</button>
           <button id="fsBtn" onclick="toggleFullscreen()" title="Fullscreen" style="font-size:18px">&#x26F6;</button>
         </div>
+      </div>
+      <!-- Waiting overlay (viewers) -->
+      <div id="waitOverlay" class="hidden center-msg" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.7);z-index:5">
+        <div class="icon">&#x23f3;</div>
+        <p id="waitMsg">Waiting for host to share a video...</p>
       </div>
     </div>
     <!-- Chat -->
@@ -507,6 +507,7 @@ let torrentObj = null;
 let dashPlayer = null;
 let pendingState = null;
 let ytJustLoaded = false;
+let ytLoadTimer = null;
 let intentionalLeave = false;
 let _lastSrcSetAt = 0;
 
@@ -628,8 +629,8 @@ function reclaimHost() {
           createYTPlayer(res.meta.videoId);
         } else {
           loadYouTubeAPI();
-          const check = setInterval(() => {
-            if (ytApiReady) { clearInterval(check); createYTPlayer(res.meta.videoId); }
+          ytLoadTimer = setInterval(() => {
+            if (ytApiReady) { clearInterval(ytLoadTimer); ytLoadTimer = null; createYTPlayer(res.meta.videoId); }
           }, 200);
         }
       } else if (res.meta.source === "drive") {
@@ -1069,8 +1070,8 @@ function loadYouTube() {
     createYTPlayer(videoId);
   } else {
     loadYouTubeAPI();
-    const check = setInterval(() => {
-      if (ytApiReady) { clearInterval(check); createYTPlayer(videoId); }
+    ytLoadTimer = setInterval(() => {
+      if (ytApiReady) { clearInterval(ytLoadTimer); ytLoadTimer = null; createYTPlayer(videoId); }
     }, 200);
   }
   $("changeBtn").classList.remove("hidden");
@@ -1188,7 +1189,7 @@ function loadDirect() {
     $("waitOverlay").classList.add("hidden");
     liveBadge.classList.remove("hidden");
     if (ytApiReady) createYTPlayer(ytId);
-    else { loadYouTubeAPI(); const check = setInterval(() => { if (ytApiReady) { clearInterval(check); createYTPlayer(ytId); } }, 200); }
+    else { loadYouTubeAPI(); ytLoadTimer = setInterval(() => { if (ytApiReady) { clearInterval(ytLoadTimer); ytLoadTimer = null; createYTPlayer(ytId); } }, 200); }
     $("changeBtn").classList.remove("hidden");
     return;
   }
@@ -1237,7 +1238,7 @@ function loadVlc() {
     $("waitOverlay").classList.add("hidden");
     liveBadge.classList.remove("hidden");
     if (ytApiReady) createYTPlayer(ytId);
-    else { loadYouTubeAPI(); const check = setInterval(() => { if (ytApiReady) { clearInterval(check); createYTPlayer(ytId); } }, 200); }
+    else { loadYouTubeAPI(); ytLoadTimer = setInterval(() => { if (ytApiReady) { clearInterval(ytLoadTimer); ytLoadTimer = null; createYTPlayer(ytId); } }, 200); }
     $("changeBtn").classList.remove("hidden");
     return;
   }
@@ -1356,6 +1357,7 @@ function createYTPlayer(videoId) {
 
 function destroyYTPlayer() {
   if (ytPlayer) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
+  if (ytLoadTimer) { clearInterval(ytLoadTimer); ytLoadTimer = null; }
 }
 
 function onYTReady() {
@@ -1498,8 +1500,8 @@ socket.on("meta", (m) => {
       createYTPlayer(m.videoId);
     } else {
       loadYouTubeAPI();
-      const check = setInterval(() => {
-        if (ytApiReady) { clearInterval(check); createYTPlayer(m.videoId); }
+      ytLoadTimer = setInterval(() => {
+        if (ytApiReady) { clearInterval(ytLoadTimer); ytLoadTimer = null; createYTPlayer(m.videoId); }
       }, 200);
     }
     return;

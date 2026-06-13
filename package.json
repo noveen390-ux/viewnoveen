@@ -20,11 +20,25 @@
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.57.0",
     "prettier": "^3.2.0",
+    "socket.io-client": "^4.8.3",
     "turbo": "^2.0.0",
     "typescript": "^5.4.0"
   },
   "dependencies": {
     "express": "^5.2.1",
     "socket.io": "^4.8.3"
-  }
+  },
+  "main": "server.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/noveen390-ux/viewnoveen.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/noveen390-ux/viewnoveen/issues"
+  },
+  "homepage": "https://github.com/noveen390-ux/viewnoveen#readme"
 }
