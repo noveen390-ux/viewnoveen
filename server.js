@@ -173,9 +173,19 @@ app.get("/player", (req, res) => {
   if (!url) return res.status(400).send("Missing url parameter");
   const enc = encodeURIComponent(url);
   const page = `<!DOCTYPE html><html><body style="margin:0;background:#000">
-<video src="/proxy?url=${enc}" controls autoplay style="width:100%;height:100vh"
+<video id="v" src="/proxy?url=${enc}" controls autoplay style="width:100%;height:100vh"
   oncanplay="parent.postMessage('vnsync-video-ready','*')"
   onerror="parent.postMessage('vnsync-video-ready','*')"></video>
+<script>
+var v=document.getElementById('v');
+window.addEventListener('message',function(e){
+  if(e.data==='vnsync-play'){v.play();}
+  else if(e.data==='vnsync-pause'){v.pause();}
+  else if(e.data==='vnsync-seek'){v.currentTime=e.data.time;}
+});
+v.addEventListener('play',function(){parent.postMessage({type:'vnsync-play'},'*');});
+v.addEventListener('pause',function(){parent.postMessage({type:'vnsync-pause'},'*');});
+</script>
 </body></html>`;
   res.send(page);
 });

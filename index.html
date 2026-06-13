@@ -530,6 +530,7 @@ let ytJustLoaded = false;
 let ytLoadTimer = null;
 let intentionalLeave = false;
 let _lastSrcSetAt = 0;
+let directPlaying = false;
 
 // Buffer manager for Local Stream
 const bufMgr = {
@@ -1066,8 +1067,12 @@ function directBack() {
     $("directIframe").src = "";
     video.classList.remove("hidden");
     playerType = null;
+    directPlaying = false;
     $("playerArea").classList.add("hidden");
     $("changeBtn").classList.add("hidden");
+    $("playBtn").classList.remove("hidden");
+    $("seekbar").classList.remove("hidden");
+    $("timeDisplay").classList.remove("hidden");
     socket.emit("direct-back");
   }
   $("directSection").classList.add("hidden");
@@ -1099,6 +1104,7 @@ function changeVideo() {
   appending = false;
   localSeek = false;
   playerType = null;
+  directPlaying = false;
   bufMgr.isStartupBuffering = false;
   bufMgr.isRebuffering = false;
   bufMgr.consecutiveStalls = 0;
@@ -1110,6 +1116,9 @@ function changeVideo() {
   $("directIframe").classList.add("hidden");
   $("directIframe").src = "";
   video.classList.remove("hidden");
+  $("playBtn").classList.remove("hidden");
+  $("seekbar").classList.remove("hidden");
+  $("timeDisplay").classList.remove("hidden");
   $("uploadArea").classList.remove("hidden");
   $("uploadStatus").textContent = "MP4, MKV, WebM, MOV";
   liveBadge.classList.add("hidden");
@@ -1161,7 +1170,14 @@ document.addEventListener("webkitfullscreenchange", () => {
 
 // ==================== VIDEO PLAYER ====================
 function togglePlay() {
-  if (!isHost || ignoreNext || playerType === "direct") return;
+  if (!isHost || ignoreNext) return;
+  if (playerType === "direct") {
+    var iframe = $("directIframe");
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage(directPlaying ? "vnsync-pause" : "vnsync-play", "*");
+    }
+    return;
+  }
   if (playerType === "youtube" && ytPlayer && ytPlayer.getPlayerState) {
     if (ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
     else ytPlayer.playVideo();
@@ -1235,11 +1251,20 @@ video.addEventListener("canplay", () => {
   }
 });
 
-// Listen for iframe video ready signal (from /player page)
+// Listen for iframe video ready signal (from /player page) and Direct tab sync
 window.addEventListener("message", (e) => {
   if (e.data === "vnsync-video-ready" || e.data === "vnsync-video-error") {
     $("waitOverlay").classList.add("hidden");
     liveBadge.classList.remove("hidden");
+  }
+  if (playerType === "direct" && e.data && e.data.type === "vnsync-play") {
+    directPlaying = true;
+    playBtn.innerHTML = "\u23F8";
+    if (isHost) socket.emit("play", 0);
+  } else if (playerType === "direct" && e.data && e.data.type === "vnsync-pause") {
+    directPlaying = false;
+    playBtn.innerHTML = "\u25B6";
+    if (isHost) socket.emit("pause", 0);
   }
 });
 
@@ -1451,12 +1476,16 @@ function startDirect(url) {
   iframe.classList.remove("hidden");
   $("youtubePlayer").classList.add("hidden");
   $("vkPlayer").classList.add("hidden");
+  directPlaying = false;
   $("playerArea").classList.remove("hidden");
   $("uploadArea").classList.add("hidden");
   $("waitOverlay").classList.add("hidden");
-  $("controls").classList.add("hidden");
+  $("playBtn").classList.add("hidden");
+  $("seekbar").classList.add("hidden");
+  $("timeDisplay").classList.add("hidden");
   liveBadge.classList.remove("hidden");
   $("changeBtn").classList.remove("hidden");
+  $("fsBtn").classList.remove("hidden");
   socket.emit("meta", { source: "direct", url });
 }
 
@@ -1492,7 +1521,9 @@ function loadVlc() {
     $("playerArea").classList.remove("hidden");
     $("uploadArea").classList.add("hidden");
     $("waitOverlay").classList.add("hidden");
-    $("controls").classList.add("hidden");
+    $("playBtn").classList.add("hidden");
+    $("seekbar").classList.add("hidden");
+    $("timeDisplay").classList.add("hidden");
     liveBadge.classList.remove("hidden");
     $("changeBtn").classList.remove("hidden");
     socket.emit("meta", { source: "direct", url: val });
@@ -1517,7 +1548,9 @@ function loadVlc() {
       $("playerArea").classList.remove("hidden");
       $("uploadArea").classList.add("hidden");
       $("waitOverlay").classList.add("hidden");
-      $("controls").classList.add("hidden");
+      $("playBtn").classList.add("hidden");
+      $("seekbar").classList.add("hidden");
+      $("timeDisplay").classList.add("hidden");
       liveBadge.classList.remove("hidden");
       $("changeBtn").classList.remove("hidden");
       socket.emit("meta", { source: "direct", url: res.url });
@@ -1794,11 +1827,14 @@ socket.on("meta", (m) => {
   if (m.source === "direct") {
     if (!m.url || m.url.trim() === '' || m.url === 'undefined') { console.warn("meta direct: empty/undefined url, ignoring"); return; }
     console.log("meta direct source, url:", m.url, "isHls:", m.isHls, "isDash:", m.isDash);
+    directPlaying = false;
     $("playerArea").classList.remove("hidden");
     $("uploadArea").classList.add("hidden");
     $("waitOverlay").classList.remove("hidden");
     $("waitMsg").textContent = "Loading video...";
-    $("controls").classList.add("hidden");
+    $("playBtn").classList.add("hidden");
+    $("seekbar").classList.add("hidden");
+    $("timeDisplay").classList.add("hidden");
     liveBadge.classList.add("hidden");
     video.classList.add("hidden");
     playerType = "direct";
@@ -1976,7 +2012,12 @@ socket.on("proxy-error", (msg) => {
 socket.on("play", (t) => {
   if (bufMgr.isRebuffering) return;
   ignoreNext = true;
-  if (playerType === "direct") return;
+  if (playerType === "direct") {
+    var iframe = $("directIframe");
+    if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage("vnsync-play", "*");
+    setTimeout(() => (ignoreNext = false), 1000);
+    return;
+  }
   if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
     ytPlayer.seekTo(t, true);
     ytPlayer.playVideo();
@@ -1992,7 +2033,12 @@ socket.on("play", (t) => {
 
 socket.on("pause", (t) => {
   ignoreNext = true;
-  if (playerType === "direct") return;
+  if (playerType === "direct") {
+    var iframe = $("directIframe");
+    if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage("vnsync-pause", "*");
+    setTimeout(() => (ignoreNext = false), 1000);
+    return;
+  }
   if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
     ytPlayer.seekTo(t, true);
     ytPlayer.pauseVideo();
@@ -2021,8 +2067,15 @@ socket.on("seek", (t) => {
 
 socket.on("sync-state", ({ t, p }) => {
   if (isHost) return;
-  if (playerType === "direct") return;
   if (bufMgr.isRebuffering) return;
+  if (playerType === "direct") {
+    var iframe = $("directIframe");
+    if (iframe && iframe.contentWindow) {
+      if (p) iframe.contentWindow.postMessage("vnsync-play", "*");
+      else iframe.contentWindow.postMessage("vnsync-pause", "*");
+    }
+    return;
+  }
   if (playerType === "youtube") {
     if (ytPlayer && ytPlayer.getCurrentTime) {
       const ct = ytPlayer.getCurrentTime();
@@ -2065,8 +2118,15 @@ socket.on("sync-state", ({ t, p }) => {
 });
 
 socket.on("state", (s) => {
-  if (playerType === "direct") return;
   if (bufMgr.isRebuffering) return;
+  if (playerType === "direct") {
+    var iframe = $("directIframe");
+    if (iframe && iframe.contentWindow) {
+      if (s.p) iframe.contentWindow.postMessage("vnsync-play", "*");
+      else iframe.contentWindow.postMessage("vnsync-pause", "*");
+    }
+    return;
+  }
   if (playerType === "youtube") {
     if (ytPlayer && ytPlayer.seekTo) {
       ytPlayer.seekTo(s.t, true);
@@ -2126,15 +2186,17 @@ socket.on("reset", () => {
   appending = false;
   if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} dashPlayer = null; }
   playerType = null;
+  directPlaying = false;
   $("playerArea").classList.add("hidden");
   $("youtubePlayer").classList.add("hidden");
   $("directIframe").classList.add("hidden");
   $("directIframe").src = "";
   video.classList.remove("hidden");
+  $("playBtn").classList.remove("hidden");
+  $("seekbar").classList.remove("hidden");
+  $("timeDisplay").classList.remove("hidden");
   $("waitOverlay").classList.remove("hidden");
-  if (prevPlayerType === "youtube") {
-    $("waitMsg").textContent = "Host is selecting a new video...";
-  }
+  $("waitMsg").textContent = "Host is selecting a new video...";
   liveBadge.classList.add("hidden");
 });
 
@@ -2154,10 +2216,14 @@ socket.on("direct-back", () => {
   video.load();
   videoMeta = null;
   playerType = null;
+  directPlaying = false;
   $("playerArea").classList.add("hidden");
   $("directIframe").classList.add("hidden");
   $("directIframe").src = "";
   video.classList.remove("hidden");
+  $("playBtn").classList.remove("hidden");
+  $("seekbar").classList.remove("hidden");
+  $("timeDisplay").classList.remove("hidden");
   $("waitOverlay").classList.remove("hidden");
   $("waitMsg").textContent = "Host is selecting a new video...";
   liveBadge.classList.add("hidden");
