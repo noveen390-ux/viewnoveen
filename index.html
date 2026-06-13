@@ -1069,6 +1069,7 @@ function directBack() {
     playerType = null;
     directPlaying = false;
     $("playerArea").classList.add("hidden");
+    $("controls").classList.remove("show");
     $("changeBtn").classList.add("hidden");
     $("playBtn").classList.remove("hidden");
     $("seekbar").classList.remove("hidden");
@@ -1110,6 +1111,7 @@ function changeVideo() {
   bufMgr.consecutiveStalls = 0;
   clearTimeout(bufMgr._stallTimer);
   socket.emit("reset");
+  $("controls").classList.remove("show");
   $("changeBtn").classList.add("hidden");
   $("playerArea").classList.add("hidden");
   $("youtubePlayer").classList.add("hidden");
@@ -1480,6 +1482,7 @@ function startDirect(url) {
   $("playerArea").classList.remove("hidden");
   $("uploadArea").classList.add("hidden");
   $("waitOverlay").classList.add("hidden");
+  $("controls").classList.add("show");
   $("playBtn").classList.add("hidden");
   $("seekbar").classList.add("hidden");
   $("timeDisplay").classList.add("hidden");
@@ -1521,6 +1524,7 @@ function loadVlc() {
     $("playerArea").classList.remove("hidden");
     $("uploadArea").classList.add("hidden");
     $("waitOverlay").classList.add("hidden");
+    $("controls").classList.add("show");
     $("playBtn").classList.add("hidden");
     $("seekbar").classList.add("hidden");
     $("timeDisplay").classList.add("hidden");
@@ -1548,6 +1552,7 @@ function loadVlc() {
       $("playerArea").classList.remove("hidden");
       $("uploadArea").classList.add("hidden");
       $("waitOverlay").classList.add("hidden");
+      $("controls").classList.add("show");
       $("playBtn").classList.add("hidden");
       $("seekbar").classList.add("hidden");
       $("timeDisplay").classList.add("hidden");
@@ -1832,6 +1837,7 @@ socket.on("meta", (m) => {
     $("uploadArea").classList.add("hidden");
     $("waitOverlay").classList.remove("hidden");
     $("waitMsg").textContent = "Loading video...";
+    $("controls").classList.add("show");
     $("playBtn").classList.add("hidden");
     $("seekbar").classList.add("hidden");
     $("timeDisplay").classList.add("hidden");
@@ -2187,6 +2193,7 @@ socket.on("reset", () => {
   if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} dashPlayer = null; }
   playerType = null;
   directPlaying = false;
+  $("controls").classList.remove("show");
   $("playerArea").classList.add("hidden");
   $("youtubePlayer").classList.add("hidden");
   $("directIframe").classList.add("hidden");
@@ -2217,6 +2224,7 @@ socket.on("direct-back", () => {
   videoMeta = null;
   playerType = null;
   directPlaying = false;
+  $("controls").classList.remove("show");
   $("playerArea").classList.add("hidden");
   $("directIframe").classList.add("hidden");
   $("directIframe").src = "";
