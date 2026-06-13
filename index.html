@@ -1067,18 +1067,8 @@ function startBufferMonitor() {
 function directBack() {
   if (!isHost) return;
   if (playerType === "direct") {
-    $("directIframe").classList.add("hidden");
-    $("directIframe").src = "";
-    video.classList.remove("hidden");
-    playerType = null;
-    directPlaying = false;
-    $("playerArea").classList.add("hidden");
-    $("controls").classList.remove("show");
-    $("changeBtn").classList.add("hidden");
-    $("playBtn").classList.remove("hidden");
-    $("seekbar").classList.remove("hidden");
-    $("timeDisplay").classList.remove("hidden");
-    socket.emit("direct-back");
+    changeVideo();
+    return;
   }
   if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
   $("directSection").classList.add("hidden");
@@ -1092,7 +1082,6 @@ function directBack() {
 
 function changeVideo() {
   if (!isHost) return;
-  if (playerType === "direct") { directBack(); return; }
   destroyYTPlayer();
   destroyVKPlayer();
   if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
