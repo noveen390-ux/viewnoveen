@@ -528,6 +528,19 @@ let ytLoadTimer = null;
 let intentionalLeave = false;
 let _lastSrcSetAt = 0;
 
+// Buffer manager for Local Stream
+const bufMgr = {
+  startupMinBuf: 10,
+  criticalLow: 2,
+  safeResume: 5,
+  consecutiveStalls: 0,
+  lastStallTime: 0,
+  stallCooldown: 30000,
+  isStartupBuffering: false,
+  isRebuffering: false,
+  _stallTimer: null,
+};
+
 // ==================== DOM ====================
 const $ = (id) => document.getElementById(id);
 const video = $("video");
@@ -718,11 +731,16 @@ function reclaimHost() {
         $("uploadArea").classList.add("hidden");
         $("playerArea").classList.remove("hidden");
         $("waitOverlay").classList.remove("hidden");
-        $("waitMsg").textContent = "Reconnecting to stream...";
+        $("waitMsg").textContent = "Buffering...";
         liveBadge.classList.add("hidden");
         video.classList.remove("hidden");
         video.src = res.meta.url;
         video.load();
+        waitForStartupBuffer(function () {
+          $("waitOverlay").classList.add("hidden");
+          liveBadge.classList.remove("hidden");
+          startBufferMonitor();
+        });
       } else if (res.meta.source === "proxy") {
         playerType = "proxy";
         proxyMode = true;
@@ -917,9 +935,16 @@ $("localStreamInput").addEventListener("change", function (e) {
       video.load();
       $("uploadArea").classList.add("hidden");
       $("playerArea").classList.remove("hidden");
-      liveBadge.classList.remove("hidden");
+      $("waitOverlay").classList.remove("hidden");
+      $("waitMsg").textContent = "Buffering...";
+      liveBadge.classList.add("hidden");
       $("changeBtn").classList.remove("hidden");
       socket.emit("meta", { source: "localstream", url: res.url, name: file.name });
+      waitForStartupBuffer(function () {
+        $("waitOverlay").classList.add("hidden");
+        liveBadge.classList.remove("hidden");
+        startBufferMonitor();
+      });
     } else {
       toast("Upload failed: " + (xhr.statusText || "Unknown error"));
       $("localStreamProgressText").textContent = "Upload failed";
@@ -933,6 +958,102 @@ $("localStreamInput").addEventListener("change", function (e) {
 
   xhr.send(file);
 });
+
+// ==================== BUFFER MANAGER ====================
+function getBufferAhead() {
+  const b = video.buffered;
+  const ct = video.currentTime;
+  for (let i = 0; i < b.length; i++) {
+    if (ct >= b.start(i) && ct <= b.end(i)) {
+      return b.end(i) - ct;
+    }
+  }
+  return 0;
+}
+
+function waitForStartupBuffer(callback) {
+  if (playerType !== 'localstream') { callback(); return; }
+  bufMgr.isStartupBuffering = true;
+  console.log('[buffer] startup: waiting for ' + bufMgr.startupMinBuf + 's buffered');
+
+  const onCanPlayThrough = function () {
+    video.removeEventListener('canplaythrough', onCanPlayThrough);
+    if (!bufMgr.isStartupBuffering) return;
+    bufMgr.isStartupBuffering = false;
+    console.log('[buffer] startup: canplaythrough, proceeding');
+    callback();
+  };
+  video.addEventListener('canplaythrough', onCanPlayThrough);
+
+  const check = function () {
+    if (!bufMgr.isStartupBuffering) return;
+    const ahead = getBufferAhead();
+    if (ahead >= bufMgr.startupMinBuf || video.readyState >= 3) {
+      bufMgr.isStartupBuffering = false;
+      video.removeEventListener('canplaythrough', onCanPlayThrough);
+      console.log('[buffer] startup: ready (' + ahead.toFixed(1) + 's)');
+      callback();
+      return;
+    }
+    console.log('[buffer] startup: ' + ahead.toFixed(1) + 's / ' + bufMgr.startupMinBuf + 's');
+    requestAnimationFrame(check);
+  };
+
+  setTimeout(function () {
+    if (bufMgr.isStartupBuffering) {
+      bufMgr.isStartupBuffering = false;
+      video.removeEventListener('canplaythrough', onCanPlayThrough);
+      console.log('[buffer] startup: timeout, proceeding');
+      callback();
+    }
+  }, 15000);
+
+  check();
+}
+
+function startBufferMonitor() {
+  if (playerType !== 'localstream') return;
+  console.log('[buffer] monitor started');
+
+  function check() {
+    if (playerType !== 'localstream') return;
+    if (video.paused || bufMgr.isRebuffering) {
+      requestAnimationFrame(check);
+      return;
+    }
+    var ahead = getBufferAhead();
+    if (ahead < bufMgr.criticalLow) {
+      var now = Date.now();
+      bufMgr.consecutiveStalls++;
+      bufMgr.lastStallTime = now;
+      var resumeThreshold = bufMgr.safeResume * Math.min(bufMgr.consecutiveStalls, 3);
+      console.log('[buffer] CRITICAL: ' + ahead.toFixed(1) + 's ahead, pausing (stall #' + bufMgr.consecutiveStalls + ', resume at ' + resumeThreshold + 's)');
+      bufMgr.isRebuffering = true;
+      video.pause();
+
+      function rebuild() {
+        if (playerType !== 'localstream') { bufMgr.isRebuffering = false; return; }
+        var nowAhead = getBufferAhead();
+        if (nowAhead >= resumeThreshold || video.readyState >= 3) {
+          bufMgr.isRebuffering = false;
+          console.log('[buffer] rebuilt: ' + nowAhead.toFixed(1) + 's, resuming');
+          video.play().catch(function () {});
+          clearTimeout(bufMgr._stallTimer);
+          bufMgr._stallTimer = setTimeout(function () {
+            bufMgr.consecutiveStalls = 0;
+            console.log('[buffer] stall counter reset');
+          }, bufMgr.stallCooldown);
+          return;
+        }
+        console.log('[buffer] rebuilding: ' + nowAhead.toFixed(1) + 's / ' + resumeThreshold + 's');
+        requestAnimationFrame(rebuild);
+      }
+      rebuild();
+    }
+    requestAnimationFrame(check);
+  }
+  check();
+}
 
 // ==================== CHANGE VIDEO ====================
 function changeVideo() {
@@ -955,6 +1076,10 @@ function changeVideo() {
   appending = false;
   localSeek = false;
   playerType = null;
+  bufMgr.isStartupBuffering = false;
+  bufMgr.isRebuffering = false;
+  bufMgr.consecutiveStalls = 0;
+  clearTimeout(bufMgr._stallTimer);
   socket.emit("reset");
   $("changeBtn").classList.add("hidden");
   $("playerArea").classList.add("hidden");
@@ -1080,7 +1205,7 @@ video.addEventListener("loadedmetadata", () => {
 });
 
 video.addEventListener("canplay", () => {
-  // Hide loading overlay once video can play
+  if (playerType === "localstream" && (bufMgr.isStartupBuffering || bufMgr.isRebuffering)) return;
   if (!$("waitOverlay").classList.contains("hidden")) {
     $("waitOverlay").classList.add("hidden");
     liveBadge.classList.remove("hidden");
@@ -1097,7 +1222,7 @@ window.addEventListener("message", (e) => {
 
 // Fallback: hide overlay after 10s even if video never reports ready
 const overlayTimer = setInterval(() => {
-  if (!$("waitOverlay").classList.contains("hidden")) {
+  if (!$("waitOverlay").classList.contains("hidden") && playerType !== "localstream") {
     $("waitOverlay").classList.add("hidden");
     liveBadge.classList.remove("hidden");
     clearInterval(overlayTimer);
@@ -1700,11 +1825,16 @@ socket.on("meta", (m) => {
     $("playerArea").classList.remove("hidden");
     $("uploadArea").classList.add("hidden");
     $("waitOverlay").classList.remove("hidden");
-    $("waitMsg").textContent = "Loading stream...";
+    $("waitMsg").textContent = "Buffering...";
     liveBadge.classList.add("hidden");
     video.classList.remove("hidden");
     video.src = m.url;
     video.load();
+    waitForStartupBuffer(function () {
+      $("waitOverlay").classList.add("hidden");
+      liveBadge.classList.remove("hidden");
+      startBufferMonitor();
+    });
     return;
   }
 
@@ -1819,6 +1949,7 @@ socket.on("proxy-error", (msg) => {
 });
 
 socket.on("play", (t) => {
+  if (bufMgr.isRebuffering) return;
   ignoreNext = true;
   if (playerType === "direct") return;
   if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
@@ -1866,6 +1997,7 @@ socket.on("seek", (t) => {
 socket.on("sync-state", ({ t, p }) => {
   if (isHost) return;
   if (playerType === "direct") return;
+  if (bufMgr.isRebuffering) return;
   if (playerType === "youtube") {
     if (ytPlayer && ytPlayer.getCurrentTime) {
       const ct = ytPlayer.getCurrentTime();
@@ -1909,6 +2041,7 @@ socket.on("sync-state", ({ t, p }) => {
 
 socket.on("state", (s) => {
   if (playerType === "direct") return;
+  if (bufMgr.isRebuffering) return;
   if (playerType === "youtube") {
     if (ytPlayer && ytPlayer.seekTo) {
       ytPlayer.seekTo(s.t, true);
@@ -1946,6 +2079,10 @@ socket.on("chat", ({ n, m, id }) => {
 
 socket.on("reset", () => {
   const prevPlayerType = playerType;
+  bufMgr.isStartupBuffering = false;
+  bufMgr.isRebuffering = false;
+  bufMgr.consecutiveStalls = 0;
+  clearTimeout(bufMgr._stallTimer);
   destroyYTPlayer();
   destroyVKPlayer();
   if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
