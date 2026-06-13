@@ -1087,6 +1087,7 @@ function directBack() {
 
 function changeVideo() {
   if (!isHost) return;
+  if (playerType === "direct") { directBack(); return; }
   destroyYTPlayer();
   destroyVKPlayer();
   if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
