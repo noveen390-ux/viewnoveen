@@ -8,6 +8,8 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useRoomStore } from '@/stores/room-store';
 import { getSyncSocket, getWebRTCSocket } from '@/lib/socket';
 import { VideoPlayer } from '@/components/player/video-player';
+import { SourceSelection } from '@/components/player/source-selection';
+import { DirectSourceInput } from '@/components/player/direct-source-input';
 import { ChatPanel } from '@/components/chat/chat-panel';
 import { ParticipantList } from '@/components/room/participant-list';
 import { VoiceControls } from '@/components/voice/voice-controls';
@@ -26,6 +28,9 @@ export default function RoomPage() {
   const [activeTab, setActiveTab] = useState<'chat' | 'participants' | 'voice'>('chat');
   const [connected, setConnected] = useState(false);
   const syncSocketRef = useRef<any>(null);
+  const [videoView, setVideoView] = useState<'player' | 'source-selection' | 'direct-input'>(
+    roomStore.video ? 'player' : 'source-selection',
+  );
 
   const { data: roomData, isLoading, error } = useQuery({
     queryKey: ['room', id],
@@ -58,7 +63,12 @@ export default function RoomPage() {
   useEffect(() => {
     if (roomData) {
       roomStore.setRoom(roomData.data);
-      if (roomData.data.video) roomStore.setVideo(roomData.data.video);
+      if (roomData.data.video) {
+        roomStore.setVideo(roomData.data.video);
+        setVideoView('player');
+      } else {
+        setVideoView('source-selection');
+      }
       if (roomData.data.participants) {
         roomStore.setParticipants(
           roomData.data.participants.map((p: any) => ({
@@ -103,8 +113,15 @@ export default function RoomPage() {
         if (action.type === 'seek') roomStore.setVideo({ ...roomStore.video!, currentTime: action.data.currentTime } as any);
         if (action.type === 'video_change' && action.data.videoId) {
           roomsApi.get(id).then((res) => {
-            if (res.data.video) roomStore.setVideo(res.data.video);
+            if (res.data.video) {
+              roomStore.setVideo(res.data.video);
+              setVideoView('player');
+            }
           });
+        }
+        if (action.type === 'direct_media_end') {
+          roomStore.setVideo(null);
+          setVideoView('source-selection');
         }
       });
 
@@ -180,7 +197,18 @@ export default function RoomPage() {
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col">
           <div className="flex-1 bg-black relative">
-            <VideoPlayer />
+            {videoView === 'player' && <VideoPlayer />}
+            {videoView === 'source-selection' && (
+              <SourceSelection
+                onSelectDirect={() => setVideoView('direct-input')}
+              />
+            )}
+            {videoView === 'direct-input' && (
+              <DirectSourceInput
+                onBack={() => setVideoView('source-selection')}
+                onPlay={() => setVideoView('player')}
+              />
+            )}
           </div>
         </div>
 

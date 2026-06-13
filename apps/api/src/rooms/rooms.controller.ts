@@ -80,6 +80,14 @@ export class RoomsController {
     return this.roomsService.setVideo(id, req.user.id, body);
   }
 
+  @Delete(':id/video')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Clear current video' })
+  async clearVideo(@Req() req: any, @Param('id') id: string) {
+    return this.roomsService.clearVideo(id, req.user.id);
+  }
+
   @Put(':id/participants/:userId/role')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

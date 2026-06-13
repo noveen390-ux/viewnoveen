@@ -79,19 +79,7 @@ export function VideoPlayer() {
     return () => clearTimeout(controlsTimeout.current);
   }, []);
 
-  if (!video) {
-    return (
-      <div className="h-full flex items-center justify-center text-surface-500">
-        <div className="text-center">
-          <div className="w-16 h-16 rounded-2xl bg-surface-800 flex items-center justify-center mx-auto mb-4">
-            <Play className="w-8 h-8 text-surface-500" />
-          </div>
-          <p className="text-lg font-medium">No video playing</p>
-          <p className="text-sm mt-1">Add a video to start watching</p>
-        </div>
-      </div>
-    );
-  }
+  if (!video) return null;
 
   return (
     <div

@@ -290,6 +290,23 @@ export class RoomsService {
     return video;
   }
 
+  async clearVideo(roomId: string, userId: string) {
+    const room = await prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) throw new NotFoundException('Room not found');
+
+    const participant = await prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId } },
+    });
+    if (!participant || (participant.role === 'participant' && room.hostId !== userId)) {
+      throw new ForbiddenException('Only hosts and co-hosts can clear the video');
+    }
+
+    await prisma.roomVideo.delete({ where: { roomId } }).catch(() => {});
+    await this.redis.del(`sync:room:${roomId}`);
+
+    return { message: 'Video cleared' };
+  }
+
   async getParticipants(roomId: string) {
     return prisma.roomParticipant.findMany({
       where: { roomId },

@@ -152,7 +152,7 @@ export interface SyncAction {
   sequenceId: number;
 }
 
-export type SyncActionType = 'play' | 'pause' | 'seek' | 'rate_change' | 'volume_change' | 'video_change' | 'sync_request' | 'sync_response';
+export type SyncActionType = 'play' | 'pause' | 'seek' | 'rate_change' | 'volume_change' | 'video_change' | 'direct_media_end' | 'sync_request' | 'sync_response';
 
 export interface SyncActionData {
   currentTime?: number;

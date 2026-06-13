@@ -70,6 +70,7 @@ export const roomsApi = {
   leave: (id: string) => api.post(`/api/rooms/${id}/leave`),
   search: (q: string, page = 1) => api.get('/api/rooms/search', { params: { q, page } }),
   setVideo: (id: string, data: any) => api.post(`/api/rooms/${id}/video`, data),
+  deleteVideo: (id: string) => api.delete(`/api/rooms/${id}/video`),
   getParticipants: (id: string) => api.get(`/api/rooms/${id}/participants`),
 };
 

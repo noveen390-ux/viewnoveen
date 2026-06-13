@@ -143,6 +143,11 @@ export class SyncService {
         state.currentTime = 0;
         state.isPlaying = false;
         break;
+      case 'direct_media_end':
+        state.videoId = undefined;
+        state.currentTime = 0;
+        state.isPlaying = false;
+        break;
     }
 
     state.lastUpdated = Date.now();
