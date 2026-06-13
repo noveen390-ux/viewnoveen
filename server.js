@@ -777,7 +777,7 @@ server.listen(PORT, () => {
   console.log(`ViewNoveen running on http://0.0.0.0:${PORT}`);
 });
 
-const SELF_URL = process.env.RAILWAY_PRIVATE_URL || process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`;
+const SELF_URL = process.env.PUBLIC_URL || process.env.RAILWAY_PRIVATE_URL || process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`;
 const agent = SELF_URL.startsWith("https") ? https : http;
 setInterval(() => {
   agent.get(SELF_URL, (res) => {
