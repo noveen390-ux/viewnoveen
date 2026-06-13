@@ -400,7 +400,10 @@ input,button{font-family:inherit;font-size:14px}
 
         <!-- Direct URL -->
         <div id="directSection" class="hidden" style="padding:16px 0">
-          <p style="margin-bottom:12px;color:var(--text2)">Paste a direct video stream URL</p>
+          <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+            <button class="btn source-btn" style="width:auto;padding:6px 14px;font-size:13px" onclick="directBack()">&larr; Back</button>
+            <span style="color:var(--text2)">Paste a direct video stream URL</span>
+          </div>
           <div style="display:flex;gap:8px;max-width:500px;margin:0 auto">
             <input type="text" id="directInput" placeholder="https://example.com/video.mp4 or .m3u8" style="flex:1">
             <button class="btn" style="width:auto;padding:10px 20px" onclick="loadDirect()">Load</button>
@@ -1056,6 +1059,26 @@ function startBufferMonitor() {
 }
 
 // ==================== CHANGE VIDEO ====================
+function directBack() {
+  if (!isHost) return;
+  if (playerType === "direct") {
+    $("directIframe").classList.add("hidden");
+    $("directIframe").src = "";
+    video.classList.remove("hidden");
+    playerType = null;
+    $("playerArea").classList.add("hidden");
+    $("changeBtn").classList.add("hidden");
+    socket.emit("direct-back");
+  }
+  $("directSection").classList.add("hidden");
+  $("uploadArea").classList.remove("hidden");
+  $("waitOverlay").classList.add("hidden");
+  liveBadge.classList.add("hidden");
+  $("directInput").value = "";
+  selectSource("upload");
+  $("uploadStatus").textContent = "MP4, MKV, WebM, MOV";
+}
+
 function changeVideo() {
   if (!isHost) return;
   destroyYTPlayer();
@@ -2123,6 +2146,22 @@ socket.on("yt-sync", ({ t }) => {
     ytPlayer.playVideo();
     pendingState = null;
   }
+});
+
+socket.on("direct-back", () => {
+  video.pause();
+  video.src = "";
+  video.load();
+  videoMeta = null;
+  playerType = null;
+  $("playerArea").classList.add("hidden");
+  $("directIframe").classList.add("hidden");
+  $("directIframe").src = "";
+  video.classList.remove("hidden");
+  $("waitOverlay").classList.remove("hidden");
+  $("waitMsg").textContent = "Host is selecting a new video...";
+  liveBadge.classList.add("hidden");
+  $("changeBtn").classList.add("hidden");
 });
 
 socket.on("end", () => {

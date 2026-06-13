@@ -696,6 +696,16 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("direct-back", () => {
+    const room = rooms[socket.data.room];
+    if (room && room.host === socket.id) {
+      room.meta = null;
+      room.state = { p: false, t: 0 };
+      socket.to(socket.data.room).emit("direct-back");
+      scheduleSave();
+    }
+  });
+
   socket.on("reclaim-host", (code, cb) => {
     const room = rooms[code];
     if (room) {
