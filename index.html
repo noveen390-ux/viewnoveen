@@ -506,6 +506,7 @@ let torrentClient = null;
 let torrentObj = null;
 let dashPlayer = null;
 let pendingState = null;
+let ytJustLoaded = false;
 let intentionalLeave = false;
 let _lastSrcSetAt = 0;
 
@@ -1057,6 +1058,7 @@ function loadYouTube() {
   const videoId = extractYouTubeId(val);
   if (!videoId) return toast("Invalid YouTube URL");
   socket.emit("meta", { source: "youtube", videoId });
+  ytJustLoaded = true;
   // Create player locally for host (meta event is broadcast to others only)
   playerType = "youtube";
   $("uploadArea").classList.add("hidden");
@@ -1364,6 +1366,11 @@ function onYTReady() {
     if (pendingState.p) ytPlayer.playVideo();
     else ytPlayer.pauseVideo();
     pendingState = null;
+  }
+  if (isHost && ytJustLoaded) {
+    ytJustLoaded = false;
+    const t = ytPlayer.getCurrentTime() || 0;
+    socket.emit("yt-sync", { t });
   }
 }
 
@@ -1833,6 +1840,7 @@ socket.on("chat", ({ n, m, id }) => {
 });
 
 socket.on("reset", () => {
+  const prevPlayerType = playerType;
   destroyYTPlayer();
   destroyVKPlayer();
   if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
@@ -1857,7 +1865,20 @@ socket.on("reset", () => {
   $("directIframe").src = "";
   video.classList.remove("hidden");
   $("waitOverlay").classList.remove("hidden");
+  if (prevPlayerType === "youtube") {
+    $("waitMsg").textContent = "Host is selecting a new video...";
+  }
   liveBadge.classList.add("hidden");
+});
+
+socket.on("yt-sync", ({ t }) => {
+  pendingState = { t, p: true };
+  $("waitOverlay").classList.add("hidden");
+  if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
+    ytPlayer.seekTo(t, true);
+    ytPlayer.playVideo();
+    pendingState = null;
+  }
 });
 
 socket.on("end", () => {

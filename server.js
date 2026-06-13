@@ -597,6 +597,7 @@ io.on("connection", (socket) => {
         delete ffmpegProcesses[code];
       }
       room.meta = null;
+      room.state = { p: false, t: 0 };
       room.chunks = [];
       room.total = 0;
       room.proxyChunks = [];
@@ -629,6 +630,15 @@ io.on("connection", (socket) => {
     if (room && room.host === socket.id) {
       room.state = { p, t };
       socket.to(socket.data.room).emit("sync-state", { t, p });
+      scheduleSave();
+    }
+  });
+
+  socket.on("yt-sync", ({ t }) => {
+    const room = rooms[socket.data.room];
+    if (room && room.host === socket.id) {
+      room.state = { p: true, t };
+      socket.to(socket.data.room).emit("yt-sync", { t });
       scheduleSave();
     }
   });
