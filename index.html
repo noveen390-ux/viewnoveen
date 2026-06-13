@@ -1605,11 +1605,11 @@ function updateYTTime() {
   if (playerType !== "youtube" || !ytPlayer || !ytPlayer.getCurrentTime) return;
   const t = ytPlayer.getCurrentTime();
   const d = ytPlayer.getDuration();
+  if (!localSeek) seekbar.value = d > 0 ? (t / d) * 1000 : 0;
   if (d > 0) {
-    if (!localSeek) seekbar.value = (t / d) * 1000;
-    timeDisplay.textContent = `${fmtTime(t)} / ${fmtTime(d)}`;
+    timeDisplay.textContent = fmtTime(t) + " / " + fmtTime(d);
   } else {
-    timeDisplay.textContent = `${fmtTime(t)} / 0:00`;
+    timeDisplay.textContent = fmtTime(t) + " / 0:00";
   }
 }
 
