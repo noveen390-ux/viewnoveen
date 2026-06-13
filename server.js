@@ -179,12 +179,15 @@ app.get("/player", (req, res) => {
 <script>
 var v=document.getElementById('v');
 window.addEventListener('message',function(e){
-  if(e.data==='vnsync-play'){v.play();}
-  else if(e.data==='vnsync-pause'){v.pause();}
-  else if(e.data==='vnsync-seek'){v.currentTime=e.data.time;}
+  var d=typeof e.data==='string'?{type:e.data}:e.data;
+  if(d.type==='vnsync-play'){v.play();}
+  else if(d.type==='vnsync-pause'){v.pause();}
+  else if(d.type==='vnsync-seek'){v.currentTime=d.time;}
 });
-v.addEventListener('play',function(){parent.postMessage({type:'vnsync-play'},'*');});
-v.addEventListener('pause',function(){parent.postMessage({type:'vnsync-pause'},'*');});
+v.addEventListener('play',function(){parent.postMessage({type:'vnsync-play',time:v.currentTime},'*');});
+v.addEventListener('pause',function(){parent.postMessage({type:'vnsync-pause',time:v.currentTime},'*');});
+v.addEventListener('seeked',function(){parent.postMessage({type:'vnsync-seeked',time:v.currentTime},'*');});
+v.addEventListener('timeupdate',function(){parent.postMessage({type:'vnsync-timeupdate',time:v.currentTime},'*');});
 </script>
 </body></html>`;
   res.send(page);

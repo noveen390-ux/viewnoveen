@@ -531,6 +531,7 @@ let ytLoadTimer = null;
 let intentionalLeave = false;
 let _lastSrcSetAt = 0;
 let directPlaying = false;
+let directTime = 0;
 
 // Buffer manager for Local Stream
 const bufMgr = {
@@ -812,17 +813,7 @@ function enterRoom() {
     $("uploadArea").classList.remove("hidden");
     $("uploadStatus").textContent = "MP4, MKV, WebM, MOV";
     liveBadge.classList.add("hidden");
-    // Start periodic sync
-    if (syncTimer) clearInterval(syncTimer);
-    syncTimer = setInterval(() => {
-      if (playerType === "youtube" && ytPlayer && ytPlayer.getCurrentTime) {
-        socket.emit("sync-state", { t: ytPlayer.getCurrentTime(), p: ytPlayer.getPlayerState() === YT.PlayerState.PLAYING });
-      } else if (playerType === "vk" && vkPlayer && vkPlayer.getCurrentTime) {
-        socket.emit("sync-state", { t: vkPlayer.getCurrentTime(), p: vkPlayer.getState() === "playing" });
-      } else if (video.duration) {
-        socket.emit("sync-state", { t: video.currentTime, p: !video.paused });
-      }
-    }, 1000);
+    startSyncTimer();
   } else {
     $("controls").classList.add("hidden");
     $("waitOverlay").classList.remove("hidden");
@@ -1106,6 +1097,7 @@ function changeVideo() {
   bufMgr.isRebuffering = false;
   bufMgr.consecutiveStalls = 0;
   clearTimeout(bufMgr._stallTimer);
+  directTime = 0;
   socket.emit("reset");
   $("controls").classList.remove("show");
   $("changeBtn").classList.add("hidden");
@@ -1135,6 +1127,23 @@ function changeVideo() {
   if (torrentClient && torrentObj) { torrentObj.destroy(); torrentObj = null; }
   if (window.hlsInstance) { window.hlsInstance.destroy(); window.hlsInstance = null; }
   if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} dashPlayer = null; }
+}
+
+// ==================== SYNC TIMER ====================
+// Start periodic sync-state emission (host only). Call whenever a player becomes active.
+function startSyncTimer() {
+  if (syncTimer) clearInterval(syncTimer);
+  syncTimer = setInterval(() => {
+    if (playerType === "youtube" && ytPlayer && ytPlayer.getCurrentTime) {
+      socket.emit("sync-state", { t: ytPlayer.getCurrentTime(), p: ytPlayer.getPlayerState() === YT.PlayerState.PLAYING });
+    } else if (playerType === "vk" && vkPlayer && vkPlayer.getCurrentTime) {
+      socket.emit("sync-state", { t: vkPlayer.getCurrentTime(), p: vkPlayer.getState() === "playing" });
+    } else if (playerType === "direct") {
+      socket.emit("sync-state", { t: directTime, p: directPlaying });
+    } else if (video.duration) {
+      socket.emit("sync-state", { t: video.currentTime, p: !video.paused });
+    }
+  }, 1000);
 }
 
 // ==================== FULLSCREEN ====================
@@ -1255,14 +1264,22 @@ window.addEventListener("message", (e) => {
     $("waitOverlay").classList.add("hidden");
     liveBadge.classList.remove("hidden");
   }
-  if (playerType === "direct" && e.data && e.data.type === "vnsync-play") {
+  if (playerType !== "direct" || typeof e.data !== "object" || !e.data) return;
+  if (e.data.type === "vnsync-play") {
     directPlaying = true;
+    directTime = e.data.time || 0;
     playBtn.innerHTML = "\u23F8";
-    if (isHost) socket.emit("play", 0);
-  } else if (playerType === "direct" && e.data && e.data.type === "vnsync-pause") {
+    if (isHost) socket.emit("play", directTime);
+  } else if (e.data.type === "vnsync-pause") {
     directPlaying = false;
+    directTime = e.data.time || 0;
     playBtn.innerHTML = "\u25B6";
-    if (isHost) socket.emit("pause", 0);
+    if (isHost) socket.emit("pause", directTime);
+  } else if (e.data.type === "vnsync-seeked") {
+    directTime = e.data.time || 0;
+    if (isHost) socket.emit("seek", directTime);
+  } else if (e.data.type === "vnsync-timeupdate") {
+    directTime = e.data.time || 0;
   }
 });
 
@@ -1475,6 +1492,7 @@ function startDirect(url) {
   $("youtubePlayer").classList.add("hidden");
   $("vkPlayer").classList.add("hidden");
   directPlaying = false;
+  directTime = 0;
   $("playerArea").classList.remove("hidden");
   $("uploadArea").classList.add("hidden");
   $("waitOverlay").classList.add("hidden");
@@ -1486,6 +1504,7 @@ function startDirect(url) {
   $("changeBtn").classList.remove("hidden");
   $("fsBtn").classList.remove("hidden");
   socket.emit("meta", { source: "direct", url });
+  startSyncTimer();
 }
 
 // ==================== VLC ====================
@@ -1635,6 +1654,7 @@ function destroyYTPlayer() {
 function onYTReady() {
   if (ytInterval) clearInterval(ytInterval);
   ytInterval = setInterval(updateYTTime, 250);
+  startSyncTimer();
   if (pendingState) {
     ytPlayer.seekTo(pendingState.t, true);
     if (pendingState.p) ytPlayer.playVideo();
@@ -1723,6 +1743,7 @@ function destroyVKPlayer() {
 function onVKReady() {
   if (vkInterval) clearInterval(vkInterval);
   vkInterval = setInterval(updateVKTime, 250);
+  startSyncTimer();
   if (pendingState) {
     vkPlayer.seek(pendingState.t);
     if (pendingState.p) vkPlayer.play();
@@ -1828,7 +1849,6 @@ socket.on("meta", (m) => {
   // Direct URL source
   if (m.source === "direct") {
     if (!m.url || m.url.trim() === '' || m.url === 'undefined') { console.warn("meta direct: empty/undefined url, ignoring"); return; }
-    console.log("meta direct source, url:", m.url, "isHls:", m.isHls, "isDash:", m.isDash);
     directPlaying = false;
     $("playerArea").classList.remove("hidden");
     $("uploadArea").classList.add("hidden");
@@ -1843,6 +1863,7 @@ socket.on("meta", (m) => {
     playerType = "direct";
     $("directIframe").src = "/player?url=" + encodeURIComponent(m.url);
     $("directIframe").classList.remove("hidden");
+    return;
   }
 
   // Torrent source
@@ -2017,7 +2038,10 @@ socket.on("play", (t) => {
   ignoreNext = true;
   if (playerType === "direct") {
     var iframe = $("directIframe");
-    if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage("vnsync-play", "*");
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage({type: "vnsync-seek", time: t}, "*");
+      iframe.contentWindow.postMessage({type: "vnsync-play"}, "*");
+    }
     setTimeout(() => (ignoreNext = false), 1000);
     return;
   }
@@ -2038,7 +2062,10 @@ socket.on("pause", (t) => {
   ignoreNext = true;
   if (playerType === "direct") {
     var iframe = $("directIframe");
-    if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage("vnsync-pause", "*");
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage({type: "vnsync-seek", time: t}, "*");
+      iframe.contentWindow.postMessage({type: "vnsync-pause"}, "*");
+    }
     setTimeout(() => (ignoreNext = false), 1000);
     return;
   }
@@ -2057,7 +2084,12 @@ socket.on("pause", (t) => {
 
 socket.on("seek", (t) => {
   ignoreNext = true;
-  if (playerType === "direct") return;
+  if (playerType === "direct") {
+    var iframe = $("directIframe");
+    if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage({type: "vnsync-seek", time: t}, "*");
+    setTimeout(() => (ignoreNext = false), 1000);
+    return;
+  }
   if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
     ytPlayer.seekTo(t, true);
   } else if (playerType === "vk" && vkPlayer && vkPlayer.seek) {
@@ -2074,8 +2106,13 @@ socket.on("sync-state", ({ t, p }) => {
   if (playerType === "direct") {
     var iframe = $("directIframe");
     if (iframe && iframe.contentWindow) {
-      if (p) iframe.contentWindow.postMessage("vnsync-play", "*");
-      else iframe.contentWindow.postMessage("vnsync-pause", "*");
+      if (Math.abs(directTime - t) > 2) {
+        ignoreNext = true;
+        iframe.contentWindow.postMessage({type: "vnsync-seek", time: t}, "*");
+        setTimeout(() => (ignoreNext = false), 1000);
+      }
+      if (p) iframe.contentWindow.postMessage({type: "vnsync-play"}, "*");
+      else iframe.contentWindow.postMessage({type: "vnsync-pause"}, "*");
     }
     return;
   }
@@ -2125,8 +2162,9 @@ socket.on("state", (s) => {
   if (playerType === "direct") {
     var iframe = $("directIframe");
     if (iframe && iframe.contentWindow) {
-      if (s.p) iframe.contentWindow.postMessage("vnsync-play", "*");
-      else iframe.contentWindow.postMessage("vnsync-pause", "*");
+      iframe.contentWindow.postMessage({type: "vnsync-seek", time: s.t}, "*");
+      if (s.p) iframe.contentWindow.postMessage({type: "vnsync-play"}, "*");
+      else iframe.contentWindow.postMessage({type: "vnsync-pause"}, "*");
     }
     return;
   }
@@ -2166,7 +2204,6 @@ socket.on("chat", ({ n, m, id }) => {
 });
 
 socket.on("reset", () => {
-  bufMgr.isStartupBuffering = false;
   bufMgr.isRebuffering = false;
   bufMgr.consecutiveStalls = 0;
   clearTimeout(bufMgr._stallTimer);
