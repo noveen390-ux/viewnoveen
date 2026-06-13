@@ -709,9 +709,19 @@ io.on("connection", (socket) => {
   socket.on("direct-back", () => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
+      const code = socket.data.room;
+      if (ffmpegProcesses[code]) {
+        try { ffmpegProcesses[code].kill(); } catch (e) {}
+        delete ffmpegProcesses[code];
+      }
       room.meta = null;
       room.state = { p: false, t: 0 };
-      socket.to(socket.data.room).emit("direct-back");
+      room.chunks = [];
+      room.total = 0;
+      room.proxyChunks = [];
+      room.proxyFetching = false;
+      deleteChunksFile(code);
+      socket.to(code).emit("direct-back");
       scheduleSave();
     }
   });

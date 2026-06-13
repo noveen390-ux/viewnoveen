@@ -808,6 +808,7 @@ function enterRoom() {
   document.title = `ViewNoveen - ${roomCode}`;
 
   if (isHost) {
+    $("controls").classList.remove("hidden");
     $("uploadArea").classList.remove("hidden");
     $("uploadStatus").textContent = "MP4, MKV, WebM, MOV";
     liveBadge.classList.add("hidden");
@@ -823,6 +824,7 @@ function enterRoom() {
       }
     }, 1000);
   } else {
+    $("controls").classList.add("hidden");
     $("waitOverlay").classList.remove("hidden");
   }
 
@@ -853,6 +855,7 @@ function copyCode() {
 
 // ==================== UPLOAD ====================
 $("fileInput").addEventListener("change", function (e) {
+  if (!isHost) return;
   const file = e.target.files[0];
   if (!file) return;
 
@@ -900,6 +903,7 @@ $("fileInput").addEventListener("change", function (e) {
 
 // ==================== LOCAL STREAM ====================
 $("localStreamInput").addEventListener("change", function (e) {
+  if (!isHost) return;
   const file = e.target.files[0];
   if (!file) return;
 
@@ -1076,6 +1080,7 @@ function directBack() {
     $("timeDisplay").classList.remove("hidden");
     socket.emit("direct-back");
   }
+  if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
   $("directSection").classList.add("hidden");
   $("uploadArea").classList.remove("hidden");
   $("waitOverlay").classList.add("hidden");
@@ -1091,6 +1096,7 @@ function changeVideo() {
   destroyYTPlayer();
   destroyVKPlayer();
   if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
+  if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
   video.pause();
   video.src = "";
   video.load();
@@ -1495,6 +1501,7 @@ function startDirect(url) {
 
 // ==================== VLC ====================
 function loadVlc() {
+  if (!isHost) return;
   const val = $("vlcInput").value.trim();
   if (!val) return toast("Enter a stream URL");
 
@@ -2170,7 +2177,6 @@ socket.on("chat", ({ n, m, id }) => {
 });
 
 socket.on("reset", () => {
-  const prevPlayerType = playerType;
   bufMgr.isStartupBuffering = false;
   bufMgr.isRebuffering = false;
   bufMgr.consecutiveStalls = 0;
@@ -2192,6 +2198,11 @@ socket.on("reset", () => {
   chunkQ = [];
   appending = false;
   if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} dashPlayer = null; }
+  if (torrentClient && torrentObj) { torrentObj.destroy(); torrentObj = null; }
+  if (window.hlsInstance) { window.hlsInstance.destroy(); window.hlsInstance = null; }
+  pendingState = null;
+  ytJustLoaded = false;
+  localSeek = false;
   playerType = null;
   directPlaying = false;
   $("controls").classList.remove("show");
@@ -2219,14 +2230,38 @@ socket.on("yt-sync", ({ t }) => {
 });
 
 socket.on("direct-back", () => {
+  bufMgr.isStartupBuffering = false;
+  bufMgr.isRebuffering = false;
+  bufMgr.consecutiveStalls = 0;
+  clearTimeout(bufMgr._stallTimer);
+  destroyYTPlayer();
+  destroyVKPlayer();
+  if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
   video.pause();
   video.src = "";
   video.load();
   videoMeta = null;
+  proxyMode = false;
+  proxyBuffer = null;
+  totalChunks = 0;
+  chunkBuf = [];
+  useFallback = false;
+  ms = null;
+  sb = null;
+  chunkQ = [];
+  appending = false;
+  if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} dashPlayer = null; }
+  if (torrentClient && torrentObj) { torrentObj.destroy(); torrentObj = null; }
+  if (window.hlsInstance) { window.hlsInstance.destroy(); window.hlsInstance = null; }
+  pendingState = null;
+  ytJustLoaded = false;
+  localSeek = false;
   playerType = null;
   directPlaying = false;
   $("controls").classList.remove("show");
+  $("controls").classList.add("hidden");
   $("playerArea").classList.add("hidden");
+  $("youtubePlayer").classList.add("hidden");
   $("directIframe").classList.add("hidden");
   $("directIframe").src = "";
   video.classList.remove("hidden");
