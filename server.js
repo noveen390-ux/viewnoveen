@@ -28,6 +28,10 @@ const HLS_DIR = path.join(__dirname, "hls");
 if (!fs.existsSync(HLS_DIR)) fs.mkdirSync(HLS_DIR, { recursive: true });
 app.use("/hls", express.static(HLS_DIR));
 
+const UPLOADS_DIR = path.join(__dirname, "uploads");
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const roomUploads = {}; // roomCode -> { file, uploadedAt }
+
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
@@ -132,14 +136,26 @@ function doSave() {
 setInterval(() => {
   const now = Date.now();
   const STALE_MS = 2 * 60 * 60 * 1000;
+  const UPLOAD_STALE_MS = 1 * 60 * 60 * 1000;
   let changed = false;
   for (const code of Object.keys(rooms)) {
     const room = rooms[code];
     if (!room.host && Object.keys(room.users).length === 0 && room._abandonedAt && now - room._abandonedAt > STALE_MS) {
       deleteChunksFile(code);
+      deleteRoomUpload(code);
       delete rooms[code];
       changed = true;
       console.log(`Cleaned up stale room ${code}`);
+    }
+  }
+  // Clean uploaded files for rooms abandoned for 1 hour
+  for (const code of Object.keys(roomUploads)) {
+    const room = rooms[code];
+    const abandonedLongEnough = room && room._abandonedAt && now - room._abandonedAt > UPLOAD_STALE_MS;
+    const orphaned = !room && now - roomUploads[code].uploadedAt > UPLOAD_STALE_MS;
+    if (abandonedLongEnough || orphaned) {
+      deleteRoomUpload(code);
+      console.log(`Cleaned up upload for ${code} (abandoned: ${!!abandonedLongEnough}, orphaned: ${!!orphaned})`);
     }
   }
   if (changed) doSave();
@@ -223,6 +239,78 @@ app.get("/proxy", async (req, res) => {
   }
 });
 
+// Upload endpoint for Local Stream - receives raw file binary
+app.post("/upload", (req, res) => {
+  const filename = req.query.filename;
+  const room = req.query.room;
+  if (!filename || !room) return res.status(400).json({ error: "Missing filename or room" });
+
+  const ext = path.extname(filename).toLowerCase();
+  if (![".mp4", ".mkv", ".webm", ".mov"].includes(ext)) {
+    return res.status(400).json({ error: "Unsupported file type" });
+  }
+
+  const safeName = room + "_" + Date.now() + ext;
+  const filePath = path.join(UPLOADS_DIR, safeName);
+  const ws = fs.createWriteStream(filePath);
+
+  roomUploads[room] = { file: safeName, uploadedAt: Date.now() };
+
+  req.on("data", (chunk) => ws.write(chunk));
+  req.on("end", () => {
+    ws.end();
+    res.json({ url: "/video/" + safeName });
+  });
+  req.on("error", (err) => {
+    ws.destroy();
+    try { fs.unlinkSync(filePath); } catch (e) {}
+    delete roomUploads[room];
+    res.status(500).json({ error: err.message });
+  });
+});
+
+// Video streaming endpoint with HTTP Range support (206 Partial Content)
+app.get("/video/:filename", (req, res) => {
+  const filePath = path.join(UPLOADS_DIR, req.params.filename);
+  if (!filePath.startsWith(UPLOADS_DIR)) return res.status(403).end();
+  if (!fs.existsSync(filePath)) return res.status(404).end();
+
+  const stat = fs.statSync(filePath);
+  const fileSize = stat.size;
+  const range = req.headers.range;
+
+  if (range) {
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+    const chunkSize = end - start + 1;
+    const stream = fs.createReadStream(filePath, { start, end });
+    res.writeHead(206, {
+      "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+      "Accept-Ranges": "bytes",
+      "Content-Length": chunkSize,
+      "Content-Type": "video/mp4",
+    });
+    stream.pipe(res);
+  } else {
+    res.writeHead(200, {
+      "Content-Length": fileSize,
+      "Content-Type": "video/mp4",
+      "Accept-Ranges": "bytes",
+    });
+    fs.createReadStream(filePath).pipe(res);
+  }
+});
+
+// Clean up uploaded files for abandoned rooms
+function deleteRoomUpload(code) {
+  if (roomUploads[code]) {
+    const f = path.join(UPLOADS_DIR, roomUploads[code].file);
+    try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch (e) {}
+    delete roomUploads[code];
+  }
+}
+
 io.on("connection", (socket) => {
   socket.on("create", (cb) => {
     let code;
@@ -282,7 +370,7 @@ io.on("connection", (socket) => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
       room.meta = m;
-      if (m.source === "youtube" || m.source === "drive" || m.source === "vk" || m.source === "archive" || m.source === "direct" || m.source === "torrent" || m.source === "proxy") {
+      if (m.source === "youtube" || m.source === "drive" || m.source === "vk" || m.source === "archive" || m.source === "direct" || m.source === "torrent" || m.source === "proxy" || m.source === "localstream") {
         room.total = 0;
         room.chunks = [];
       } else {

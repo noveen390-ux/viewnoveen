@@ -349,6 +349,7 @@ input,button{font-family:inherit;font-size:14px}
           <button class="btn source-btn" data-source="archive" style="width:auto;padding:8px 20px" onclick="selectSource('archive')">Archive</button>
           <button class="btn source-btn" data-source="direct" style="width:auto;padding:8px 20px" onclick="selectSource('direct')">Direct</button>
           <button class="btn source-btn" data-source="vlc" style="width:auto;padding:8px 20px" onclick="selectSource('vlc')">VLC</button>
+          <button class="btn source-btn" data-source="localstream" style="width:auto;padding:8px 20px" onclick="selectSource('localstream')">Local Stream</button>
         </div>
 
         <!-- Upload -->
@@ -414,6 +415,22 @@ input,button{font-family:inherit;font-size:14px}
             <button class="btn" style="width:auto;padding:10px 20px" onclick="loadVlc()">Play</button>
           </div>
           <div id="vlcStatus" class="hidden" style="margin-top:12px;color:var(--text2)"></div>
+        </div>
+
+        <!-- Local Stream -->
+        <div id="localStreamSection" class="hidden" style="padding:16px 0">
+          <p style="margin-bottom:12px;color:var(--text2)">Select a video file from your device to stream (MP4, MKV, WebM, MOV - up to 5GB)</p>
+          <div style="display:flex;flex-direction:column;gap:8px;max-width:500px;margin:0 auto">
+            <input type="file" id="localStreamInput" accept="video/mp4,video/webm,video/x-matroska,video/quicktime,video/*" style="display:none">
+            <button class="btn" style="width:auto;padding:10px 20px" onclick="document.getElementById('localStreamInput').click()">Choose File</button>
+            <div id="localStreamProgress" class="hidden" style="padding:12px;background:var(--surface2);border-radius:var(--radius);text-align:center">
+              <div style="font-size:14px;font-weight:600" id="localStreamProgressText">Uploading... 0%</div>
+              <div style="margin-top:8px;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+                <div id="localStreamProgressBar" style="height:100%;width:0%;background:var(--primary);border-radius:3px;transition:width .3s"></div>
+              </div>
+            </div>
+            <div id="localStreamFileName" style="font-size:13px;color:var(--text2);text-align:center"></div>
+          </div>
         </div>
       </div>
       <!-- Player -->
@@ -696,6 +713,16 @@ function reclaimHost() {
         $("youtubePlayer").classList.add("hidden");
         $("vkPlayer").classList.add("hidden");
         startTorrent(res.meta.torrentId);
+      } else if (res.meta.source === "localstream") {
+        playerType = "localstream";
+        $("uploadArea").classList.add("hidden");
+        $("playerArea").classList.remove("hidden");
+        $("waitOverlay").classList.remove("hidden");
+        $("waitMsg").textContent = "Reconnecting to stream...";
+        liveBadge.classList.add("hidden");
+        video.classList.remove("hidden");
+        video.src = res.meta.url;
+        video.load();
       } else if (res.meta.source === "proxy") {
         playerType = "proxy";
         proxyMode = true;
@@ -849,6 +876,64 @@ $("fileInput").addEventListener("change", function (e) {
   next();
 });
 
+// ==================== LOCAL STREAM ====================
+$("localStreamInput").addEventListener("change", function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const ext = file.name.split(".").pop().toLowerCase();
+  if (!["mp4", "mkv", "webm", "mov"].includes(ext)) {
+    return toast("Unsupported file type. Use MP4, MKV, WebM, or MOV.");
+  }
+
+  if (file.size > 5 * 1024 * 1024 * 1024) {
+    return toast("File too large. Maximum size is 5GB.");
+  }
+
+  $("localStreamFileName").textContent = file.name;
+  $("localStreamProgress").classList.remove("hidden");
+  $("localStreamProgressText").textContent = "Uploading... 0%";
+  $("localStreamProgressBar").style.width = "0%";
+
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/upload?filename=" + encodeURIComponent(file.name) + "&room=" + encodeURIComponent(roomCode), true);
+  xhr.setRequestHeader("Content-Type", "application/octet-stream");
+
+  xhr.upload.onprogress = function (ev) {
+    if (ev.lengthComputable) {
+      const pct = Math.round((ev.loaded / ev.total) * 100);
+      $("localStreamProgressText").textContent = "Uploading... " + pct + "%";
+      $("localStreamProgressBar").style.width = pct + "%";
+    }
+  };
+
+  xhr.onload = function () {
+    if (xhr.status === 200) {
+      const res = JSON.parse(xhr.responseText);
+      $("localStreamProgressText").textContent = "Upload complete!";
+      $("localStreamProgressBar").style.width = "100%";
+      playerType = "localstream";
+      video.src = res.url;
+      video.load();
+      $("uploadArea").classList.add("hidden");
+      $("playerArea").classList.remove("hidden");
+      liveBadge.classList.remove("hidden");
+      $("changeBtn").classList.remove("hidden");
+      socket.emit("meta", { source: "localstream", url: res.url, name: file.name });
+    } else {
+      toast("Upload failed: " + (xhr.statusText || "Unknown error"));
+      $("localStreamProgressText").textContent = "Upload failed";
+    }
+  };
+
+  xhr.onerror = function () {
+    toast("Upload failed. Check your connection.");
+    $("localStreamProgressText").textContent = "Upload failed";
+  };
+
+  xhr.send(file);
+});
+
 // ==================== CHANGE VIDEO ====================
 function changeVideo() {
   if (!isHost) return;
@@ -889,6 +974,9 @@ function changeVideo() {
   $("directInput").value = "";
   $("vlcInput").value = "";
   $("vlcStatus").classList.add("hidden");
+  $("localStreamInput").value = "";
+  $("localStreamProgress").classList.add("hidden");
+  $("localStreamFileName").textContent = "";
   if (torrentClient && torrentObj) { torrentObj.destroy(); torrentObj = null; }
   if (window.hlsInstance) { window.hlsInstance.destroy(); window.hlsInstance = null; }
   if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} dashPlayer = null; }
@@ -1033,6 +1121,7 @@ function selectSource(type) {
   $("archiveSection").classList.toggle("hidden", type !== "archive");
   $("directSection").classList.toggle("hidden", type !== "direct");
   $("vlcSection").classList.toggle("hidden", type !== "vlc");
+  $("localStreamSection").classList.toggle("hidden", type !== "localstream");
 }
 
 function extractYouTubeId(val) {
@@ -1602,6 +1691,20 @@ socket.on("meta", (m) => {
       proxyBuffer = [];
       useFallback = true;
     }
+    return;
+  }
+
+  // Local Stream source
+  if (m.source === "localstream") {
+    playerType = "localstream";
+    $("playerArea").classList.remove("hidden");
+    $("uploadArea").classList.add("hidden");
+    $("waitOverlay").classList.remove("hidden");
+    $("waitMsg").textContent = "Loading stream...";
+    liveBadge.classList.add("hidden");
+    video.classList.remove("hidden");
+    video.src = m.url;
+    video.load();
     return;
   }
 
