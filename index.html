@@ -530,6 +530,7 @@ let ytJustLoaded = false;
 let ytLoadTimer = null;
 let intentionalLeave = false;
 let _lastSrcSetAt = 0;
+let _lastSyncCorr = 0;
 let directPlaying = false;
 let directTime = 0;
 
@@ -564,6 +565,136 @@ video.addEventListener("error", function() {
   var err = video.error;
   console.log("[video] error:", err ? err.code + " - " + err.message : "unknown");
 });
+
+// ==================== DIAGNOSTIC INSTRUMENTATION ====================
+// Logs video state + events to diagnose F5 reconnection choppiness.
+// Collects a rolling ring buffer of 1000 events and prints periodic snapshots.
+// In viewer, tag is "viewer"; in host, tag is "host".
+(function() {
+  var _diagEvts = [];
+  var _diagTag = isHost ? "host" : "viewer";
+  var _diagLast = {};
+  var _lastSnap = null;  // last full pipeline snapshot for volumechange comparison
+  function _pipelineSnap() {
+    var at = video.audioTracks;
+    var audioTrackInfo = "none";
+    if (at && at.length > 0) { audioTrackInfo = "en=" + at[0].enabled + " l=" + at.length; }
+    var snap = {
+      t: Date.now(),
+      ct: video.currentTime,
+      d: video.duration || 0,
+      rs: video.readyState,
+      ns: video.networkState,
+      ps: video.paused,
+      sk: video.seeking,
+      vol: video.volume,
+      muted: video.muted,
+      buf: video.buffered.length ? video.buffered.end(video.buffered.length-1) : 0,
+      // Chrome pipeline stats
+      df: video.webkitDecodedFrameCount || -1,
+      dp: video.webkitDroppedFrameCount || -1,
+      ad: video.webkitAudioDecodedByteCount || -1,
+      vd: video.webkitVideoDecodedByteCount || -1,
+      // Audio track
+      at: audioTrackInfo,
+      // HLS internal buffer
+      hlsBuf: (window.hlsInstance && window.hlsInstance.media ? window.hlsInstance.media.buffered.length + " ranges" : "no-hls"),
+    };
+    // Also check MediaSource readyState if accessible
+    if (window.hlsInstance && window.hlsInstance.media && window.hlsInstance.media.src) {
+      try {
+        var ms = window.hlsInstance.media.src; // might be blob URL
+        // MediaSource objects don't expose readyState easily from JS
+      } catch(e) {}
+    }
+    return snap;
+  }
+  function snapLine(s) {
+    return "t=" + s.ct.toFixed(2) + "/" + (s.d?s.d.toFixed(2):"NaN") + " rs=" + s.rs + " ns=" + s.ns + " ps=" + s.ps + " sk=" + s.sk + " vol=" + s.vol + " mute=" + s.muted + " buf=" + s.buf.toFixed(1) + " df=" + s.df + " dp=" + s.dp + " ad=" + s.ad + " vd=" + s.vd + " at=" + s.at + " " + s.hlsBuf;
+  }
+  function _diag(e, extra) {
+    extra = extra || "";
+    var s = _pipelineSnap();
+    var obj = { t: Date.now(), e: e, extra: extra, s: s };
+    _diagEvts.push(obj);
+    if (_diagEvts.length > 2000) _diagEvts.shift();
+    _diagLast[e] = Date.now();
+    _lastSnap = s;
+    if (e === "waiting") { window._diagWaitingCount = (window._diagWaitingCount||0) + 1; }
+    if (e === "stalled") { window._diagStalledCount = (window._diagStalledCount||0) + 1; }
+    console.log("[DIAG-" + _diagTag + "] " + e + extra + " " + snapLine(s));
+  }
+  // Monitored events (throttled: timeupdate at most every 2s, rest always logged)
+  ["seeked","seeking","waiting","stalled","play","playing","pause","canplay","loadedmetadata","emptied","suspend","loadstart"].forEach(function(ev) {
+    video.addEventListener(ev, function() { _diag(ev); });
+  });
+  video.addEventListener("timeupdate", function() {
+    if (!_diagLast._lastTu || Date.now() - _diagLast._lastTu > 2000) { _diagLast._lastTu = Date.now(); _diag("timeupdate"); }
+  });
+  // Volume change: log previous snapshot + current state
+  video.addEventListener("volumechange", function() {
+    var pre = _lastSnap;
+    var post = _pipelineSnap();
+    console.log("[DIAG-" + _diagTag + "-VOLUME] PRE:  " + (pre ? snapLine(pre) : "no-prev"));
+    console.log("[DIAG-" + _diagTag + "-VOLUME] POST: " + snapLine(post));
+    _lastSnap = post;
+  });
+  // Periodic full-state snapshot every 1 second
+  _diag("init", "");
+  setInterval(function() {
+    var s = _pipelineSnap();
+    _lastSnap = s;
+    // Also check if HLS internal buffer profile is exposed
+    var hlsDetail = "";
+    if (window.hlsInstance && window.hlsInstance.stats) {
+      try {
+        var st = window.hlsInstance.stats;
+        hlsDetail = " hlsBufLen=" + (st.bufferLength !== undefined ? st.bufferLength.toFixed(1) : "?") + " hlsTb=" + (st.tBitrate !== undefined ? (st.tBitrate/1000).toFixed(0) : "?");
+      } catch(e) {}
+    } else if (window.hlsInstance && typeof window.hlsInstance.bufferLength === 'number') {
+      hlsDetail = " hlsBufLen=" + window.hlsInstance.bufferLength.toFixed(1);
+    }
+    console.log("[DIAG-" + _diagTag + "-PERIODIC] " + snapLine(s) + hlsDetail + " w=" + (window._diagWaitingCount||0) + " s=" + (window._diagStalledCount||0));
+  }, 1000);
+  // Key handler: press D to dump all events, V to dump video element keys
+  document.addEventListener("keydown", function(evt) {
+    if (evt.key === "d" || evt.key === "D") {
+      console.log("[DIAG-" + _diagTag + "-DUMP] Full event log (" + _diagEvts.length + " events):");
+      _diagEvts.forEach(function(o) { console.log("  " + new Date(o.t).toISOString().slice(11,23) + " " + o.e + (o.extra?" "+o.extra:"") + " " + snapLine(o.s)); });
+    }
+    if (evt.key === "v" || evt.key === "V") {
+      var v = video;
+      var info = {
+        currentTime: v.currentTime, duration: v.duration, readyState: v.readyState,
+        networkState: v.networkState, paused: v.paused, seeking: v.seeking,
+        volume: v.volume, muted: v.muted, playbackRate: v.playbackRate,
+        defaultPlaybackRate: v.defaultPlaybackRate,
+        videoWidth: v.videoWidth, videoHeight: v.videoHeight,
+        error: v.error ? v.error.code : null,
+        buffered: v.buffered.length ? v.buffered.end(v.buffered.length-1).toFixed(2) : "0",
+        audioTracks: v.audioTracks ? (v.audioTracks.length > 0 ? v.audioTracks[0].enabled + "/" + v.audioTracks.length : "none") : "unsupported",
+        webkitDecodedFrames: v.webkitDecodedFrameCount,
+        webkitDroppedFrames: v.webkitDroppedFrameCount,
+        webkitAudioBytes: v.webkitAudioDecodedByteCount,
+        webkitVideoBytes: v.webkitVideoDecodedByteCount,
+        src: (v.src || "").substring(0,80),
+      };
+      console.log("[DIAG-" + _diagTag + "-VIDEO-INFO]", JSON.stringify(info, null, 2));
+    }
+  });
+  // Expose helpers for instrumentation throughout code
+  window._diag = _diag;
+  window._diagEvts = _diagEvts;
+  window._diagTag = _diagTag;
+  window._diagCorrections = 0;
+  window._diagTimerCount = 0;
+  window._diagHlsCount = 0;
+  window._diagDashCount = 0;
+  window._diagWaitingCount = 0;
+  window._diagStalledCount = 0;
+  window._pipelineSnap = _pipelineSnap;
+  window._snapLine = snapLine;
+})();
 
 // Disable buttons until socket connects
 createBtn.disabled = true;
@@ -602,6 +733,26 @@ socket.on("reconnect_attempt", (n) => {
 socket.on("reconnect", () => {
   $("reconnectBar").classList.add("hidden");
 });
+
+// Socket event spy (log all incoming socket events)
+(function() {
+  var _installed = false;
+  function installSpy() {
+    if (_installed || !socket.onevent) return;
+    _installed = true;
+    var _orig = socket.onevent;
+    socket.onevent = function(pkt) {
+      var args = pkt.data || [];
+      if (args.length > 0 && args[0] !== "chat") {
+        console.log("[DIAG-SOCKET-" + window._diagTag + "] <-- " + args[0] + " " + JSON.stringify(args.slice(1)).substring(0,160));
+      }
+      _orig.call(this, pkt);
+    };
+  }
+  // Try now, and also on every connect
+  installSpy();
+  socket.on("connect", installSpy);
+})();
 
 // ==================== ROOMS ====================
 function createRoom() {
@@ -1136,7 +1287,9 @@ function changeVideo() {
 // ==================== SYNC TIMER ====================
 // Start periodic sync-state emission (host only). Call whenever a player becomes active.
 function startSyncTimer() {
-  if (syncTimer) clearInterval(syncTimer);
+  if (syncTimer) { clearInterval(syncTimer); console.log("[DIAG-" + window._diagTag + "] startSyncTimer: cleared previous timer"); }
+  window._diagTimerCount = (window._diagTimerCount||0) + 1;
+  console.log("[DIAG-" + window._diagTag + "] startSyncTimer: new timer #" + window._diagTimerCount + " playerType=" + playerType);
   syncTimer = setInterval(() => {
     if (playerType === "youtube" && ytPlayer && ytPlayer.getCurrentTime) {
       socket.emit("sync-state", { t: ytPlayer.getCurrentTime(), p: ytPlayer.getPlayerState() === YT.PlayerState.PLAYING });
@@ -1457,6 +1610,7 @@ function setVideoSrc(url) {
 }
 
 function startDirect(url) {
+  console.log("[DIAG-" + window._diagTag + "] startDirect url=" + url.substring(0,80) + " playerType=" + playerType + " hlsInst=" + (window.hlsInstance ? "exists" : "null") + " dashPlayer=" + (typeof dashPlayer));
   playerType = "direct";
   // Hide iframe (no longer used for Direct playback)
   $("directIframe").classList.add("hidden");
@@ -1475,21 +1629,27 @@ function startDirect(url) {
   $("fsBtn").classList.remove("hidden");
   // Load video via same-origin proxy
   var proxyUrl = "/proxy?url=" + encodeURIComponent(url);
+  window._diagProxyUrl = proxyUrl;
   var isHls = url.toLowerCase().endsWith(".m3u8");
   var isDash = url.toLowerCase().endsWith(".mpd");
   if (isHls && window.Hls && window.Hls.isSupported()) {
-    if (window.hlsInstance) { window.hlsInstance.destroy(); }
+    if (window.hlsInstance) { window.hlsInstance.destroy(); console.log("[DIAG-" + window._diagTag + "] startDirect: destroyed previous hlsInstance"); }
     var h = new Hls();
+    window._diagHlsCount = (window._diagHlsCount||0) + 1;
+    console.log("[DIAG-" + window._diagTag + "] startDirect: created Hls instance #" + window._diagHlsCount);
     window.hlsInstance = h;
     h.loadSource(proxyUrl);
     h.attachMedia(video);
   } else if (isDash && window.dashjs && window.dashjs.MediaPlayer) {
-    if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} }
+    if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} console.log("[DIAG-" + window._diagTag + "] startDirect: reset previous dashPlayer"); }
     dashPlayer = dashjs.MediaPlayer().create();
+    window._diagDashCount = (window._diagDashCount||0) + 1;
+    console.log("[DIAG-" + window._diagTag + "] startDirect: created Dash instance #" + window._diagDashCount);
     dashPlayer.initialize(video, proxyUrl, true);
   } else {
     video.src = proxyUrl;
     video.load();
+    console.log("[DIAG-" + window._diagTag + "] startDirect: set video.src=" + proxyUrl.substring(0,80));
   }
   socket.emit("meta", { source: "direct", url, isHls, isDash });
   startSyncTimer();
@@ -1837,6 +1997,7 @@ socket.on("meta", (m) => {
   // Direct URL source
   if (m.source === "direct") {
     if (!m.url || m.url.trim() === '' || m.url === 'undefined') { console.warn("meta direct: empty/undefined url, ignoring"); return; }
+    console.log("[DIAG-" + window._diagTag + "-META] direct url=" + (m.url ? m.url.substring(0,80) : "none") + " isHls=" + m.isHls + " isDash=" + m.isDash + " oldPlayerType=" + playerType + " hlsInst=" + (window.hlsInstance ? "exists" : "null") + " dashPlayer=" + (typeof dashPlayer) + " syncTimer=" + (syncTimer ? "exists" : "null"));
     directPlaying = false;
     $("directIframe").classList.add("hidden");
     $("directIframe").src = "";
@@ -1853,18 +2014,23 @@ socket.on("meta", (m) => {
     var isHls = m.url.toLowerCase().endsWith(".m3u8");
     var isDash = m.url.toLowerCase().endsWith(".mpd");
     if (isHls && window.Hls && window.Hls.isSupported()) {
-      if (window.hlsInstance) { window.hlsInstance.destroy(); }
+      if (window.hlsInstance) { window.hlsInstance.destroy(); console.log("[DIAG-" + window._diagTag + "-META] destroyed previous hlsInstance"); }
       var h = new Hls();
+      window._diagHlsCount = (window._diagHlsCount||0) + 1;
+      console.log("[DIAG-" + window._diagTag + "-META] created Hls instance #" + window._diagHlsCount);
       window.hlsInstance = h;
       h.loadSource(proxyUrl);
       h.attachMedia(video);
     } else if (isDash && window.dashjs && window.dashjs.MediaPlayer) {
-      if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} }
+      if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} console.log("[DIAG-" + window._diagTag + "-META] reset previous dashPlayer"); }
       dashPlayer = dashjs.MediaPlayer().create();
+      window._diagDashCount = (window._diagDashCount||0) + 1;
+      console.log("[DIAG-" + window._diagTag + "-META] created Dash instance #" + window._diagDashCount);
       dashPlayer.initialize(video, proxyUrl, true);
     } else {
       video.src = proxyUrl;
       video.load();
+      console.log("[DIAG-" + window._diagTag + "-META] set video.src=" + proxyUrl.substring(0,80));
     }
     return;
   }
@@ -2115,9 +2281,16 @@ socket.on("sync-state", ({ t, p }) => {
   if (!$("playerArea").classList.contains("hidden") && !$("waitOverlay").classList.contains("hidden")) return;
   const diff = Math.abs(video.currentTime - t);
   if (diff > 2 && video.duration) {
-    ignoreNext = true;
-    video.currentTime = t;
-    setTimeout(() => (ignoreNext = false), 1000);
+    if (video.seeking || Date.now() - _lastSyncCorr < 1500) {
+      console.log("[DIAG-" + window._diagTag + "-SYNC] SKIP correction #" + (window._diagCorrections||0) + " ct=" + video.currentTime.toFixed(2) + " target=" + t + " diff=" + diff.toFixed(2) + " seeking=" + video.seeking + " cooldown=" + (Date.now() - _lastSyncCorr));
+    } else {
+      window._diagCorrections = (window._diagCorrections||0) + 1;
+      _lastSyncCorr = Date.now();
+      console.log("[DIAG-" + window._diagTag + "-SYNC] correction #" + window._diagCorrections + " ct=" + video.currentTime.toFixed(2) + " target=" + t + " diff=" + diff.toFixed(2));
+      ignoreNext = true;
+      video.currentTime = t;
+      setTimeout(() => (ignoreNext = false), 1000);
+    }
   }
   if (p && video.paused) video.play().catch(() => {});
   else if (!p && !video.paused && Date.now() - _lastSrcSetAt > 3000) video.pause();
@@ -2142,16 +2315,45 @@ socket.on("state", (s) => {
       pendingState = s;
     }
   } else if (playerType !== "youtube" && playerType !== "vk") {
+    console.log("[DIAG-" + window._diagTag + "-STATE] p=" + s.p + " t=" + s.t + " ct=" + video.currentTime.toFixed(2) + " d=" + video.duration + " rs=" + video.readyState + " ps=" + video.paused + " sk=" + video.seeking + " playerType=" + playerType + " pendingState=" + (pendingState ? "yes" : "no"));
+    _lastSyncCorr = Date.now();
     if (s.p) {
-      video.currentTime = s.t;
-      var _resumePlay = function() {
-        try { video.removeEventListener("seeked", _resumePlay); } catch (e) {}
-        video.play().catch(() => {});
+      var doSeek = function() {
+        video.currentTime = s.t;
+        var _resumePlay = function() {
+          try { video.removeEventListener("seeked", _resumePlay); } catch (e) {}
+          video.play().catch(() => {});
+        };
+        video.addEventListener("seeked", _resumePlay);
+        setTimeout(_resumePlay, 100);
       };
-      video.addEventListener("seeked", _resumePlay);
-      setTimeout(_resumePlay, 100);
+      if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+        doSeek();
+      } else {
+        video.addEventListener("loadedmetadata", doSeek, { once: true });
+        setTimeout(function() {
+          video.removeEventListener("loadedmetadata", doSeek);
+          if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+            video.currentTime = s.t;
+          }
+          video.play().catch(() => {});
+        }, 10000);
+      }
     } else {
-      video.currentTime = s.t;
+      var doSeekPaused = function() {
+        video.currentTime = s.t;
+      };
+      if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+        doSeekPaused();
+      } else {
+        video.addEventListener("loadedmetadata", doSeekPaused, { once: true });
+        setTimeout(function() {
+          video.removeEventListener("loadedmetadata", doSeekPaused);
+          if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+            video.currentTime = s.t;
+          }
+        }, 10000);
+      }
       if (Date.now() - _lastSrcSetAt > 3000) video.pause();
     }
   }
