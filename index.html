@@ -550,6 +550,30 @@ const bufMgr = {
 // ==================== DOM ====================
 const $ = (id) => document.getElementById(id);
 const video = $("video");
+// Wrap play() to retry with muted on autoplay rejection (viewer F5 reconnection)
+(function() {
+  var _origPlay = video.play.bind(video);
+  video.play = function() {
+    var p = _origPlay();
+    if (p && typeof p.catch === 'function') {
+      return p.catch(function(e) {
+        if (e && e.name === 'NotAllowedError') {
+          video.muted = true;
+          var unmute = function() {
+            video.muted = false;
+            document.removeEventListener('click', unmute);
+            document.removeEventListener('touchstart', unmute);
+          };
+          document.addEventListener('click', unmute);
+          document.addEventListener('touchstart', unmute);
+          return _origPlay();
+        }
+        throw e;
+      });
+    }
+    return p;
+  };
+})();
 const seekbar = $("seekbar");
 const timeDisplay = $("timeDisplay");
 const playBtn = $("playBtn");
