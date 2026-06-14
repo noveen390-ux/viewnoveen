@@ -1317,7 +1317,6 @@ function startSyncTimer() {
   window._diagTimerCount = (window._diagTimerCount||0) + 1;
   console.log("[DIAG-" + window._diagTag + "] startSyncTimer: new timer #" + window._diagTimerCount + " playerType=" + playerType);
   syncTimer = setInterval(() => {
-    if (document.hidden) return;
     if (playerType === "youtube" && ytPlayer && ytPlayer.getCurrentTime) {
       socket.emit("sync-state", { t: ytPlayer.getCurrentTime(), p: ytPlayer.getPlayerState() === YT.PlayerState.PLAYING });
     } else if (playerType === "vk" && vkPlayer && vkPlayer.getCurrentTime) {
