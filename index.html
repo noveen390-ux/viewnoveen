@@ -550,7 +550,16 @@ const bufMgr = {
 // ==================== DOM ====================
 const $ = (id) => document.getElementById(id);
 const video = $("video");
-// Wrap play() to retry with muted on autoplay rejection (viewer F5 reconnection)
+// Unmute on user interaction (recovery from muted autoplay)
+(function() {
+  function _ensureAudio() { if (video.muted) video.muted = false; }
+  document.addEventListener('click', _ensureAudio);
+  document.addEventListener('touchstart', _ensureAudio);
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') _ensureAudio();
+  });
+})();
+// Wrap play() to retry with muted on autoplay rejection
 (function() {
   var _origPlay = video.play.bind(video);
   video.play = function() {
@@ -559,13 +568,6 @@ const video = $("video");
       return p.catch(function(e) {
         if (e && e.name === 'NotAllowedError') {
           video.muted = true;
-          var unmute = function() {
-            video.muted = false;
-            document.removeEventListener('click', unmute);
-            document.removeEventListener('touchstart', unmute);
-          };
-          document.addEventListener('click', unmute);
-          document.addEventListener('touchstart', unmute);
           return _origPlay();
         }
         throw e;
@@ -1325,6 +1327,14 @@ function startSyncTimer() {
     }
   }, 1000);
 }
+
+// Emit sync-state immediately when host tab becomes visible
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden || !isHost) return;
+  if (playerType !== "youtube" && playerType !== "vk" && video.duration) {
+    socket.emit("sync-state", { t: video.currentTime, p: !video.paused });
+  }
+});
 
 // ==================== FULLSCREEN ====================
 function toggleFullscreen() {
