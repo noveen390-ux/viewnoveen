@@ -3,22 +3,23 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
+import { useI18n } from '@/lib/i18n';
+import { AppHeader } from '@/components/layout/app-header';
 import { motion } from 'framer-motion';
-import { Monitor, Users, Music, MessageCircle, Video, Shield } from 'lucide-react';
+import { Film, Play, MessageSquare, RefreshCw, Users } from 'lucide-react';
 import Link from 'next/link';
 
 const features = [
-  { icon: Monitor, title: 'Watch Party', description: 'Synchronized video playback with friends' },
-  { icon: Users, title: 'Social Rooms', description: 'Create public or private watch rooms' },
-  { icon: Music, title: 'Music Sessions', description: 'Collaborative music listening' },
-  { icon: MessageCircle, title: 'Chat & Calls', description: 'Text, voice, and video calls' },
-  { icon: Video, title: 'Google Drive', description: 'Stream your Drive videos' },
-  { icon: Shield, title: 'Privacy First', description: 'Secure and private rooms' },
-];
+  { icon: Film, key: 'sync' },
+  { icon: Play, key: 'sources' },
+  { icon: MessageSquare, key: 'chat' },
+  { icon: RefreshCw, key: 'recovery' },
+] as const;
 
 export default function HomePage() {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { t } = useI18n();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -27,100 +28,83 @@ export default function HomePage() {
   }, [isAuthenticated, router]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-surface-950 via-surface-900 to-surface-950">
-      <header className="fixed top-0 w-full z-50 glass border-b border-surface-800">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">VN</span>
-            </div>
-            <span className="text-xl font-bold text-white">ViewNoveen</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="text-surface-300 hover:text-white transition-colors px-4 py-2"
-            >
-              Login
-            </Link>
-            <Link
-              href="/register"
-              className="bg-brand-600 hover:bg-brand-500 text-white px-6 py-2 rounded-lg font-medium transition-all"
-            >
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen">
+      <AppHeader />
 
-      <main>
-        <section className="pt-32 pb-20 px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-5xl md:text-7xl font-bold text-white mb-6"
-            >
-              Watch Together.
-              <br />
-              <span className="bg-gradient-to-r from-brand-400 to-brand-200 bg-clip-text text-transparent">
-                Feel Together.
-              </span>
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-lg text-surface-400 mb-8 max-w-2xl mx-auto"
-            >
-              The ultimate platform for watching videos with friends in real-time.
-              Synced playback, voice chat, and more.
-            </motion.p>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="flex items-center justify-center gap-4"
-            >
+      <main className="mx-auto max-w-7xl px-4 pb-24 pt-12 md:pt-20">
+        <section className="relative text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+          >
+            <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 text-xs text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+              {t('app.tagline')}
+            </div>
+            <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-tight tracking-tight md:text-6xl">
+              {t('landing.headline')}
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-base text-muted-foreground md:text-lg">
+              {t('landing.subhead')}
+            </p>
+            <div className="mt-10 flex flex-wrap justify-center gap-3">
               <Link
-                href="/register"
-                className="bg-brand-600 hover:bg-brand-500 text-white px-8 py-3 rounded-xl font-semibold text-lg transition-all"
+                href="/rooms/create"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90 glow-primary"
               >
-                Start Watching
+                <Play className="h-4 w-4" />
+                {t('landing.ctaPrimary')}
               </Link>
               <Link
-                href="/login"
-                className="bg-surface-800 hover:bg-surface-700 text-white px-8 py-3 rounded-xl font-semibold text-lg transition-all"
+                href="/join"
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-6 py-3 text-sm font-semibold text-foreground transition hover:bg-muted"
               >
-                Sign In
+                <Users className="h-4 w-4" />
+                {t('landing.ctaSecondary')}
               </Link>
-            </motion.div>
-          </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, delay: 0.2 }}
+            className="surface-card mx-auto mt-16 max-w-4xl overflow-hidden p-2 glow-primary"
+          >
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_240px]">
+              <div className="aspect-video w-full rounded-md bg-black/80" />
+              <div className="flex flex-col gap-2">
+                <div className="surface-card flex-1 p-3 text-start text-xs text-muted-foreground">
+                  <div className="mb-2 font-semibold text-foreground">3 {t('rooms.members')}</div>
+                  <div role="img" aria-label="crown">{'\uD83D\uDC51'} Salma &middot; {t('rooms.host')}</div>
+                  <div>&bull; Ahmed</div>
+                  <div>&bull; {t('auth.continueGuest')}</div>
+                </div>
+                <div className="surface-card flex-1 p-3 text-start text-xs">
+                  <div className="text-primary">Salma</div>
+                  <div className="text-foreground">{'\u062F\u0642\u064A\u0642\u0629'} 12:34 {'\uD83D\uDD25'}</div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </section>
 
-        <section className="py-20 px-4">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-white text-center mb-12">
-              Everything You Need
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {features.map((feature, i) => (
-                <motion.div
-                  key={feature.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 * i }}
-                  className="bg-surface-900/50 border border-surface-800 rounded-xl p-6 hover:border-brand-500/30 transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-lg bg-brand-600/10 flex items-center justify-center mb-4 group-hover:bg-brand-600/20 transition-colors">
-                    <feature.icon className="w-6 h-6 text-brand-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
-                  <p className="text-surface-400">{feature.description}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
+        <section className="mt-24 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {features.map((f, i) => (
+            <motion.div
+              key={f.key}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: i * 0.05 }}
+              className="surface-card p-5"
+            >
+              <f.icon className="mb-3 h-6 w-6 text-primary" />
+              <h3 className="text-sm font-semibold">{t(`landing.features.${f.key}Title`)}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">{t(`landing.features.${f.key}Desc`)}</p>
+            </motion.div>
+          ))}
         </section>
       </main>
     </div>

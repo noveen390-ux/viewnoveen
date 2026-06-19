@@ -6,7 +6,7 @@ import { getWebRTCSocket } from '@/lib/socket';
 import { useAuthStore } from '@/stores/auth-store';
 import { cn } from '@/lib/utils';
 import {
-  Mic, MicOff, Headphones, HeadphoneOff, Video, VideoOff,
+  Mic, MicOff, Headphones, VolumeX, Video, VideoOff,
   MonitorUp, Phone, Monitor,
 } from 'lucide-react';
 
@@ -58,7 +58,7 @@ export function VoiceControls() {
 
   const buttons = [
     { icon: isMuted ? MicOff : Mic, label: isMuted ? 'Unmute' : 'Mute', active: !isMuted, danger: isMuted, onClick: toggleMute },
-    { icon: isDeafened ? HeadphoneOff : Headphones, label: isDeafened ? 'Undeafen' : 'Deafen', active: !isDeafened, danger: isDeafened, onClick: toggleDeafen },
+    { icon: isDeafened ? VolumeX : Headphones, label: isDeafened ? 'Undeafen' : 'Deafen', active: !isDeafened, danger: isDeafened, onClick: toggleDeafen },
     { icon: isVideoEnabled ? Video : VideoOff, label: isVideoEnabled ? 'Video Off' : 'Video On', active: isVideoEnabled, onClick: toggleVideo },
     { icon: MonitorUp, label: isScreenSharing ? 'Stop Share' : 'Share Screen', active: isScreenSharing, onClick: toggleScreenShare },
   ];

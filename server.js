@@ -6,15 +6,15 @@ const { Server } = require("socket.io");
 const crypto = require("crypto");
 const path = require("path");
 const fs = require("fs");
-const { spawn } = require("child_process");
+
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   maxHttpBufferSize: 1024 * 1024 * 1024,
   cors: { origin: "*" },
-  pingTimeout: 60000,
-  pingInterval: 10000,
+  pingTimeout: 20000,
+  pingInterval: 8000,
   transports: ["websocket", "polling"],
   allowUpgrades: true,
 });
@@ -23,14 +23,12 @@ const PORT = process.env.PORT || process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, "data");
 const ROOMS_FILE = path.join(DATA_DIR, "rooms.json");
 let rooms = {};
-const ffmpegProcesses = {};
-const HLS_DIR = path.join(__dirname, "hls");
-if (!fs.existsSync(HLS_DIR)) fs.mkdirSync(HLS_DIR, { recursive: true });
-app.use("/hls", express.static(HLS_DIR));
+
 
 const UPLOADS_DIR = path.join(__dirname, "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 const roomUploads = {}; // roomCode -> { file, uploadedAt }
+let _globalChatId = 0;
 
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -69,6 +67,8 @@ function loadRooms() {
         } else {
           r.chunks = [];
         }
+        r.subtitleVtt = r.subtitleVtt || null;
+        r._seq = r._seq || (r.state ? r.state._seq : 0) || 0;
         r.users = {};
         r.host = null;
       }
@@ -103,8 +103,11 @@ function doSave() {
       const r = rooms[code];
       out[code] = {
         meta: r.meta,
+        hostToken: r.hostToken,
         total: r.total,
         state: r.state,
+        subtitleVtt: r.subtitleVtt || null,
+        _seq: r._seq || (r.state ? r.state._seq : 0) || 0,
         _abandonedAt: r._abandonedAt || null,
       };
       if (r.total > 0) {
@@ -233,8 +236,45 @@ app.get("/proxy", async (req, res) => {
 
     // === STREAM MODE: single GET with auto redirect, streams the body ===
     if (req.headers.range) headers["Range"] = req.headers.range;
-    const upstream = await fetch(url, { redirect: "follow", headers });
-    console.log(`[proxy/stream] req: ${url}  final: ${upstream.url}  status: ${upstream.status}  type: ${upstream.headers.get("content-type") || ""}`);
+    console.log(`[PROXY] streaming ${url}`);
+    // Abort only if the upstream never returns response headers (dead/timed-out origin).
+    // Cleared as soon as headers arrive, so the body stream stays unbounded for long videos.
+    const _connCtrl = new AbortController();
+    const _connTimer = setTimeout(() => _connCtrl.abort(), 20000);
+    const upstream = await fetch(url, { redirect: "follow", headers, signal: _connCtrl.signal });
+    clearTimeout(_connTimer);
+    console.log(`[PROXY] req: ${url}  final: ${upstream.url}  status: ${upstream.status}  type: ${upstream.headers.get("content-type") || ""}`);
+
+    // HLS playlists: rewrite segment/variant/key URIs back through this proxy. Otherwise the
+    // player resolves relative URIs against the same-origin /proxy base, or fetches absolute
+    // URIs directly without the required Referer/Origin headers. Media segments stream normally.
+    const _ct = upstream.headers.get("content-type") || "";
+    const _finalUrl = upstream.url || url;
+    const _isHlsPlaylist =
+      _ct.includes("mpegurl") || _ct.includes("mpegURL") ||
+      _finalUrl.split("?")[0].toLowerCase().endsWith(".m3u8");
+    if (_isHlsPlaylist) {
+      const raw = await upstream.text();
+      const wrap = (u) => {
+        try { return "/proxy?url=" + encodeURIComponent(new URL(u, _finalUrl).href); }
+        catch (e) { return u; }
+      };
+      const rewritten = raw.split("\n").map((line) => {
+        const trimmed = line.trim();
+        if (trimmed === "") return line;
+        if (trimmed.startsWith("#")) {
+          // Rewrite URI="..." attributes inside tags (EXT-X-KEY, EXT-X-MEDIA, EXT-X-MAP, ...)
+          return line.replace(/URI="([^"]+)"/g, (m, uri) => 'URI="' + wrap(uri) + '"');
+        }
+        // Segment or variant-playlist URI line
+        return wrap(trimmed);
+      }).join("\n");
+      res.setHeader("content-type", _ct || "application/vnd.apple.mpegurl");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      if (!res.destroyed) res.status(200).end(rewritten);
+      return;
+    }
+
     ["content-type", "content-length", "content-range", "accept-ranges"].forEach(h => {
       if (upstream.headers.get(h)) res.setHeader(h, upstream.headers.get(h));
     });
@@ -315,6 +355,68 @@ app.get("/video/:filename", (req, res) => {
   }
 });
 
+// Convert SRT to VTT
+function convertSrtToVtt(srt) {
+  let vtt = srt.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // Strip BOM
+  if (vtt.charCodeAt(0) === 0xFEFF) vtt = vtt.slice(1);
+  vtt = 'WEBVTT\n\n' + vtt;
+  // Replace SRT ms separator (,) with VTT ms separator (.)
+  vtt = vtt.replace(/(\d+),(\d{3})/g, '$1.$2');
+  // Remove SRT cue sequence numbers (lone digits before timestamps)
+  vtt = vtt.replace(/^\d+\n(?=\d{1,2}:\d{2})/gm, '');
+  return vtt;
+}
+
+// HTTPS helper for OpenSubtitles API
+function httpsPost(hostname, path, headers, body) {
+  return new Promise((resolve, reject) => {
+    const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+    const opts = {
+      hostname, path, method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
+    };
+    const req = https.request(opts, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try { resolve(JSON.parse(data)); } catch(e) { resolve(data); }
+        } else {
+          reject(new Error(`OpenSubtitles API error ${res.statusCode}: ${data.slice(0,500)}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    if (bodyStr) req.write(bodyStr);
+    req.end();
+  });
+}
+
+function fetchUrl(url) {
+  return new Promise((resolve, reject) => {
+    const mod = url.startsWith('https:') ? https : http;
+    const doReq = (u) => {
+      mod.get(u, (res) => {
+        if (res.statusCode === 301 || res.statusCode === 302) { doReq(res.headers.location); return; }
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => resolve(data));
+      }).on('error', reject);
+    };
+    doReq(url);
+  });
+}
+
+// Subtitle endpoint
+app.get("/subtitle/:code", (req, res) => {
+  const room = rooms[req.params.code.toUpperCase()];
+  if (!room || !room.subtitleVtt) return res.status(404).end();
+  res.setHeader("Content-Type", "text/vtt; charset=utf-8");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.send(room.subtitleVtt);
+});
+
 // Clean up uploaded files for abandoned rooms
 function deleteRoomUpload(code) {
   if (roomUploads[code]) {
@@ -331,12 +433,15 @@ io.on("connection", (socket) => {
       code = crypto.randomBytes(3).toString("hex").toUpperCase();
     } while (rooms[code]);
 
+    const hostToken = crypto.randomUUID();
     rooms[code] = {
       host: socket.id,
+      hostToken,
       meta: null,
       chunks: [],
       total: 0,
-      state: { p: false, t: 0 },
+      state: { p: false, t: 0, _seq: 0 },
+      _seq: 0,
       users: {},
     };
 
@@ -345,7 +450,7 @@ io.on("connection", (socket) => {
     rooms[code].users[socket.id] = { n: "Host" };
     io.to(code).emit("count", Object.keys(rooms[code].users).length);
     scheduleSave();
-    cb({ code });
+    cb({ code, hostToken });
   });
 
   socket.on("join", ({ c, n }, cb) => {
@@ -383,7 +488,7 @@ io.on("connection", (socket) => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
       room.meta = m;
-      if (m.source === "youtube" || m.source === "drive" || m.source === "vk" || m.source === "archive" || m.source === "direct" || m.source === "torrent" || m.source === "proxy" || m.source === "localstream") {
+      if (m.source === "youtube" || m.source === "drive" || m.source === "direct" || m.source === "torrent" || m.source === "proxy" || m.source === "localstream") {
         room.total = 0;
         room.chunks = [];
       } else {
@@ -404,11 +509,17 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Pure echo ack for client-side RTT measurement — no room state, no broadcast, no side effects
+  socket.on("ping-rtt", (clientTime, cb) => {
+    if (typeof cb === "function") cb();
+  });
+
   socket.on("play", (t) => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
-      room.state = { p: true, t };
-      socket.to(socket.data.room).emit("play", t);
+      room._seq = (room._seq || 0) + 1;
+      room.state = { p: true, t, _seq: room._seq, savedAt: Date.now() };
+      socket.to(socket.data.room).emit("play", { t, _seq: room._seq, savedAt: room.state.savedAt });
       scheduleSave();
     }
   });
@@ -416,8 +527,9 @@ io.on("connection", (socket) => {
   socket.on("pause", (t) => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
-      room.state = { p: false, t };
-      socket.to(socket.data.room).emit("pause", t);
+      room._seq = (room._seq || 0) + 1;
+      room.state = { p: false, t, _seq: room._seq, savedAt: Date.now() };
+      socket.to(socket.data.room).emit("pause", { t, _seq: room._seq, savedAt: room.state.savedAt });
       scheduleSave();
     }
   });
@@ -425,8 +537,9 @@ io.on("connection", (socket) => {
   socket.on("seek", (t) => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
-      room.state = { ...room.state, t };
-      socket.to(socket.data.room).emit("seek", t);
+      room._seq = (room._seq || 0) + 1;
+      room.state = { ...room.state, t, _seq: room._seq, savedAt: Date.now() };
+      socket.to(socket.data.room).emit("seek", { t, _seq: room._seq, savedAt: room.state.savedAt });
       scheduleSave();
     }
   });
@@ -598,7 +711,7 @@ io.on("connection", (socket) => {
 
   socket.on("chat", ({ n, m }) => {
     const room = rooms[socket.data.room];
-    if (room) io.to(socket.data.room).emit("chat", { n, m, id: Date.now() });
+    if (room) io.to(socket.data.room).emit("chat", { n, m, id: ++_globalChatId, ts: Date.now() });
   });
 
   socket.on("resolve-url", async (url, cb) => {
@@ -618,127 +731,54 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("vlc-transcode", (url, cb) => {
-    const code = socket.data.room;
-    if (!code || !rooms[code] || rooms[code].host !== socket.id) return cb({ error: "Not authorized" });
-    if (!url.startsWith("rtsp://") && !url.startsWith("rtmp://") && !url.startsWith("mms://")) return cb({ error: "Unsupported protocol" });
-
-    // Kill any existing ffmpeg process for this room
-    if (ffmpegProcesses[code]) {
-      try { ffmpegProcesses[code].kill(); } catch (e) {}
+  socket.on("direct-back", () => {
+    const room = rooms[socket.data.room];
+    if (room && room.host === socket.id) {
+      room.meta = null;
+      room._seq = 0;
+      room.state = { p: false, t: 0, _seq: 0 };
+      room.subtitleVtt = null;
+      socket.to(socket.data.room).emit("direct-back");
+      scheduleSave();
     }
-    // Clean up old HLS files for this room
-    const roomDir = path.join(HLS_DIR, code);
-    if (fs.existsSync(roomDir)) {
-      try { fs.rmSync(roomDir, { recursive: true, force: true }); } catch (e) {}
-    }
-
-    fs.mkdirSync(roomDir, { recursive: true });
-    const outputPath = path.join(roomDir, "index.m3u8");
-    const segPattern = path.join(roomDir, "seg%03d.ts");
-
-    const ff = spawn("ffmpeg", [
-      "-i", url,
-      "-c:v", "libx264",
-      "-preset", "ultrafast",
-      "-tune", "zerolatency",
-      "-c:a", "aac",
-      "-f", "hls",
-      "-hls_time", "2",
-      "-hls_list_size", "5",
-      "-hls_flags", "delete_segments",
-      "-hls_segment_filename", segPattern,
-      outputPath,
-    ], { stdio: ["ignore", "pipe", "pipe"] });
-
-    ffmpegProcesses[code] = ff;
-
-    let started = false;
-    const checkInterval = setInterval(() => {
-      if (fs.existsSync(outputPath)) {
-        const stat = fs.statSync(outputPath);
-        if (stat.size > 0 && !started) {
-          started = true;
-          clearInterval(checkInterval);
-          cb({ url: `/hls/${code}/index.m3u8` });
-        }
-      }
-    }, 500);
-
-    // Timeout after 30s if playlist never appears
-    setTimeout(() => {
-      clearInterval(checkInterval);
-      if (!started) {
-        try { ff.kill(); } catch (e) {}
-        delete ffmpegProcesses[code];
-        cb({ error: "ffmpeg did not produce output within 30 seconds" });
-      }
-    }, 30000);
-
-    ff.stderr.on("data", (d) => {
-      const msg = d.toString();
-      // Only log ffmpeg errors, not routine status
-      if (msg.toLowerCase().includes("error")) console.error(`[ffmpeg:${code}] ${msg.trim()}`);
-    });
-
-    ff.on("exit", (code_) => {
-      clearInterval(checkInterval);
-      delete ffmpegProcesses[code];
-      if (!started) cb({ error: `ffmpeg exited with code ${code_}` });
-    });
   });
 
   socket.on("reset", () => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
-      // Kill ffmpeg if running
       const code = socket.data.room;
-      if (ffmpegProcesses[code]) {
-        try { ffmpegProcesses[code].kill(); } catch (e) {}
-        delete ffmpegProcesses[code];
-      }
       room.meta = null;
-      room.state = { p: false, t: 0 };
+      room._seq = 0;
+      room.state = { p: false, t: 0, _seq: 0 };
       room.chunks = [];
       room.total = 0;
       room.proxyChunks = [];
       room.proxyFetching = false;
+      room.subtitleVtt = null;
       deleteChunksFile(code);
       socket.to(code).emit("reset");
       scheduleSave();
     }
   });
 
-  socket.on("direct-back", () => {
-    const room = rooms[socket.data.room];
-    if (room && room.host === socket.id) {
-      const code = socket.data.room;
-      if (ffmpegProcesses[code]) {
-        try { ffmpegProcesses[code].kill(); } catch (e) {}
-        delete ffmpegProcesses[code];
-      }
-      room.meta = null;
-      room.state = { p: false, t: 0 };
-      room.chunks = [];
-      room.total = 0;
-      room.proxyChunks = [];
-      room.proxyFetching = false;
-      deleteChunksFile(code);
-      socket.to(code).emit("direct-back");
-      scheduleSave();
+  socket.on("reclaim-host", (code, hostToken, cb) => {
+    // Backward compatible: old client calls with (code, cb), new with (code, token, cb)
+    if (typeof hostToken === "function") {
+      cb = hostToken;
+      hostToken = undefined;
     }
-  });
-
-  socket.on("reclaim-host", (code, cb) => {
     const room = rooms[code];
     if (room) {
+      if (hostToken !== undefined && hostToken !== room.hostToken) {
+        return cb({ err: "Invalid host token." });
+      }
       if (room.host) delete room.users[room.host];
       room.host = socket.id;
       room._abandonedAt = null;
       socket.data.room = code;
       socket.join(code);
       room.users[socket.id] = { n: "Host" };
-      cb({ ok: true, state: room.state, meta: room.meta, total: room.total });
+      cb({ ok: true, state: room.state, meta: room.meta, total: room.total, hostToken: room.hostToken });
       io.to(code).emit("count", Object.keys(room.users).length);
       scheduleSave();
     } else {
@@ -749,18 +789,96 @@ io.on("connection", (socket) => {
   socket.on("sync-state", ({ t, p }) => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
-      room.state = { p, t };
-      socket.to(socket.data.room).emit("sync-state", { t, p });
-      scheduleSave();
+      room.state = { p, t, _seq: room._seq || 0, savedAt: Date.now() };
+      socket.to(socket.data.room).emit("sync-state", { t, p, _seq: room._seq || 0, savedAt: room.state.savedAt });
+    }
+  });
+
+  // PS3: Respond to sync-request with current room state (for viewer catch-up)
+  socket.on("sync-request", () => {
+    const room = rooms[socket.data.room];
+    if (room && room.state) {
+      socket.emit("sync-state", room.state);
     }
   });
 
   socket.on("yt-sync", ({ t }) => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
-      room.state = { p: true, t };
-      socket.to(socket.data.room).emit("yt-sync", { t });
+      room._seq = (room._seq || 0) + 1;
+      room.state = { p: true, t, _seq: room._seq, savedAt: Date.now() };
+      socket.to(socket.data.room).emit("yt-sync", { t, _seq: room._seq, savedAt: room.state.savedAt });
       scheduleSave();
+    }
+  });
+
+  // Subtitle upload (host only)
+  socket.on("subtitle-upload", ({ name, content }) => {
+    const room = rooms[socket.data.room];
+    if (!room || room.host !== socket.id) return;
+    let vtt = content;
+    if (name.toLowerCase().endsWith('.srt')) {
+      vtt = convertSrtToVtt(content);
+    }
+    room.subtitleVtt = vtt;
+    io.to(socket.data.room).emit("subtitle-ready");
+    scheduleSave();
+  });
+
+  // Subtitle check (viewer on join/reconnect)
+  socket.on("subtitle-check", () => {
+    const room = rooms[socket.data.room];
+    if (!room) return;
+    socket.emit("subtitle-check-response", { hasSubtitle: !!room.subtitleVtt });
+  });
+
+  // Subtitle search (host only)
+  socket.on("search-subtitles", async ({ query, language, apiKey }) => {
+    const room = rooms[socket.data.room];
+    if (!room || room.host !== socket.id) return;
+    const key = apiKey || process.env.OPENSUBTITLES_API_KEY;
+    if (!key) return socket.emit("search-results", { error: "API key not configured. Set OPENSUBTITLES_API_KEY env var or provide a key in the search dialog." });
+    try {
+      const langs = language ? language + ',en' : 'en';
+      const body = JSON.stringify({ query, languages: langs });
+      const data = await httpsPost('www.opensubtitles.com', '/api/v1/subtitles', { 'Api-Key': key, 'User-Agent': 'ViewNoveen v1' }, body);
+      const results = (data.data || []).map(r => ({
+        id: r.id,
+        title: r.attributes?.feature_details?.title || query,
+        year: r.attributes?.feature_details?.year || '',
+        language: (r.attributes?.language || '').toUpperCase(),
+        downloads: r.attributes?.download_count || 0,
+        rating: r.attributes?.ratings || 0,
+        fileId: r.attributes?.files?.[0]?.file_id || null,
+      })).filter(r => r.fileId);
+      socket.emit("search-results", { results });
+    } catch (e) {
+      socket.emit("search-results", { error: 'Search failed: ' + e.message });
+    }
+  });
+
+  // Subtitle download (host only)
+  socket.on("download-subtitle", async ({ fileId, apiKey }) => {
+    const room = rooms[socket.data.room];
+    if (!room || room.host !== socket.id) return;
+    const key = apiKey || process.env.OPENSUBTITLES_API_KEY;
+    if (!key) return socket.emit("subtitle-downloaded", { error: "API key not configured." });
+    try {
+      const dlBody = JSON.stringify({ file_id: fileId });
+      const dlData = await httpsPost('www.opensubtitles.com', '/api/v1/download', { 'Api-Key': key, 'User-Agent': 'ViewNoveen v1', 'Content-Type': 'application/json' }, dlBody);
+      const subUrl = dlData.link;
+      if (!subUrl) throw new Error('No download link in response');
+      let raw = await fetchUrl(subUrl);
+      // Detect charset via BOM or meta
+      if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1);
+      else if (raw.charCodeAt(0) === 0xFFFE) raw = raw.slice(1);
+      // Check if it's SRT or VTT
+      const isSrt = raw.includes('-->') ? false : /\d+\s*\n\d{1,2}:\d{2}:\d{2}[.,]\d{3}\s*-->/.test(raw) || /^\d+\s*\n\d{1,2}:\d{2}:\d{2}[.,]\d{3}/m.test(raw);
+      let vtt = raw;
+      if (isSrt) vtt = convertSrtToVtt(raw);
+      socket.emit("subtitle-downloaded", { vtt });
+    } catch (e) {
+      socket.emit("subtitle-downloaded", { error: 'Download failed: ' + e.message });
     }
   });
 
@@ -775,12 +893,8 @@ io.on("connection", (socket) => {
     if (wasHost) {
       room.host = null;
       room._abandonedAt = Date.now();
+      io.to(code).emit("end");
       io.to(code).emit("count", Object.keys(room.users).length);
-      // Kill ffmpeg if running
-      if (ffmpegProcesses[code]) {
-        try { ffmpegProcesses[code].kill(); } catch (e) {}
-        delete ffmpegProcesses[code];
-      }
     } else if (Object.keys(room.users).length === 0 && !room.host) {
       room._abandonedAt = Date.now();
     } else {
@@ -800,12 +914,3 @@ server.listen(PORT, () => {
   console.log(`ViewNoveen running on http://0.0.0.0:${PORT}`);
 });
 
-const SELF_URL = process.env.PUBLIC_URL || process.env.RAILWAY_PRIVATE_URL || process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`;
-const agent = SELF_URL.startsWith("https") ? https : http;
-setInterval(() => {
-  agent.get(SELF_URL, (res) => {
-    console.log(`Self-ping: ${res.statusCode}`);
-  }).on("error", (err) => {
-    console.error(`Self-ping failed: ${err.message}`);
-  });
-}, 4 * 60 * 1000);

@@ -1,86 +1,312 @@
 {
-  "1AD885": {
-    "meta": {
-      "source": "direct",
-      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-    },
+  "649511": {
+    "meta": null,
+    "hostToken": "d609c1af-8a32-4502-8ded-35bfebb736db",
     "total": 0,
     "state": {
       "p": false,
-      "t": 0
+      "t": 0,
+      "_seq": 0
     },
+    "subtitleVtt": null,
+    "_seq": 0,
     "_abandonedAt": null
   },
-  "16C049": {
+  "974184": {
     "meta": {
       "source": "direct",
-      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      "url": "http://127.0.0.1:11470/038aec704c54c337668f3dd42c9aa4e58e7b01a4/1?",
+      "isHls": false,
+      "isDash": false
     },
+    "hostToken": "a3456f05-0f27-4b9c-ab44-350765d7cefb",
     "total": 0,
     "state": {
       "p": false,
-      "t": 0
+      "t": 66.710056,
+      "_seq": 2
     },
+    "subtitleVtt": null,
+    "_seq": 2,
     "_abandonedAt": null
   },
-  "409CBF": {
+  "D3590A": {
     "meta": {
       "source": "direct",
-      "url": "https://pixeldrain.com/api/file/CFoACBKA"
+      "url": "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_1MB.mp4",
+      "isHls": false,
+      "isDash": false
     },
+    "hostToken": "c8c86337-dbd8-4dc7-9a32-ec70b33baa65",
     "total": 0,
     "state": {
       "p": false,
       "t": 0
     },
+    "subtitleVtt": null,
+    "_seq": 0,
     "_abandonedAt": null
   },
-  "F9F47C": {
+  "00EB89": {
     "meta": {
       "source": "direct",
-      "url": "https://pixeldrain.com/api/file/CFoACBKA"
+      "url": "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_1MB.mp4",
+      "isHls": false,
+      "isDash": false
     },
+    "hostToken": "9dc0cdbe-cf13-4bff-9a3c-5bff47b287c2",
     "total": 0,
     "state": {
       "p": false,
-      "t": 0
+      "t": 0,
+      "_seq": 0
     },
-    "_abandonedAt": 1781316616506
+    "subtitleVtt": null,
+    "_seq": 0,
+    "_abandonedAt": null
   },
-  "2EF370": {
+  "7A0FCA": {
     "meta": {
       "source": "direct",
-      "url": "https://vkvideo.ru/video-232485706_456240293?list=ln-wOOpgEGcQcBNALQ9zn"
+      "url": "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_1MB.mp4",
+      "isHls": false,
+      "isDash": false
     },
+    "hostToken": "497ff870-fdb8-4357-91f6-bd1cced7767e",
     "total": 0,
     "state": {
       "p": false,
-      "t": 0
+      "t": 0,
+      "_seq": 0
     },
-    "_abandonedAt": 1781317448347
+    "subtitleVtt": null,
+    "_seq": 0,
+    "_abandonedAt": null
   },
-  "2AB069": {
-    "meta": {
-      "source": "direct",
-      "url": "https://dai.ly/xa687sg"
-    },
+  "84722F": {
+    "meta": null,
+    "hostToken": "a6903414-9f4a-4169-b21b-0f66cc8077cb",
     "total": 0,
     "state": {
       "p": false,
-      "t": 0
+      "t": 0,
+      "_seq": 0
     },
-    "_abandonedAt": 1781317664140
+    "subtitleVtt": null,
+    "_seq": 0,
+    "_abandonedAt": null
   },
-  "F438C3": {
-    "meta": {
-      "source": "direct",
-      "url": "https://distributed-wed-publications-doug.trycloudflare.com"
-    },
+  "05C320": {
+    "meta": null,
+    "hostToken": "25f945bd-2e54-4d2a-b3cc-732d930758c7",
     "total": 0,
     "state": {
       "p": false,
-      "t": 0
+      "t": 0,
+      "_seq": 0
     },
-    "_abandonedAt": 1781317694083
+    "subtitleVtt": null,
+    "_seq": 0,
+    "_abandonedAt": null
+  },
+  "FC5CA8": {
+    "meta": null,
+    "hostToken": "b02a960d-b553-47b4-a530-db4e95827791",
+    "total": 0,
+    "state": {
+      "p": false,
+      "t": 0,
+      "_seq": 0
+    },
+    "subtitleVtt": null,
+    "_seq": 0,
+    "_abandonedAt": null
+  },
+  "9A0840": {
+    "meta": {
+      "source": "direct",
+      "url": "http://127.0.0.1:11470/038aec704c54c337668f3dd42c9aa4e58e7b01a4/1?",
+      "isHls": false,
+      "isDash": false
+    },
+    "hostToken": "1a7d292a-d74b-4d7e-8a9f-68d4d001d10d",
+    "total": 0,
+    "state": {
+      "p": true,
+      "t": 1299.572334,
+      "_seq": 6
+    },
+    "subtitleVtt": null,
+    "_seq": 6,
+    "_abandonedAt": null
+  },
+  "5BE921": {
+    "meta": {
+      "source": "direct",
+      "url": "http://127.0.0.1:11470/038aec704c54c337668f3dd42c9aa4e58e7b01a4/1?",
+      "isHls": false,
+      "isDash": false
+    },
+    "hostToken": "fa78307d-d98b-438f-8ad6-27f1e567bc18",
+    "total": 0,
+    "state": {
+      "p": false,
+      "t": 98.046452,
+      "_seq": 12
+    },
+    "subtitleVtt": null,
+    "_seq": 12,
+    "_abandonedAt": null
+  },
+  "692CF0": {
+    "meta": {
+      "source": "direct",
+      "url": "http://127.0.0.1:11470/038aec704c54c337668f3dd42c9aa4e58e7b01a4/1?",
+      "isHls": false,
+      "isDash": false
+    },
+    "hostToken": "1ffd7ce4-4cf7-4d0f-a8bd-c9f1973109b5",
+    "total": 0,
+    "state": {
+      "p": true,
+      "t": 3019.17221,
+      "_seq": 3
+    },
+    "subtitleVtt": null,
+    "_seq": 3,
+    "_abandonedAt": null
+  },
+  "ADFD3C": {
+    "meta": {
+      "source": "direct",
+      "url": "http://127.0.0.1:11470/038aec704c54c337668f3dd42c9aa4e58e7b01a4/1?",
+      "isHls": false,
+      "isDash": false
+    },
+    "hostToken": "9f13972d-515c-4546-b41f-d034162535a4",
+    "total": 0,
+    "state": {
+      "p": false,
+      "t": 31.676703,
+      "_seq": 12
+    },
+    "subtitleVtt": null,
+    "_seq": 12,
+    "_abandonedAt": null
+  },
+  "5B8283": {
+    "meta": {
+      "source": "direct",
+      "url": "http://127.0.0.1:11470/038aec704c54c337668f3dd42c9aa4e58e7b01a4/1?",
+      "isHls": false,
+      "isDash": false
+    },
+    "hostToken": "b1d0db48-07dc-43e5-aaa5-7bb6465e6510",
+    "total": 0,
+    "state": {
+      "p": false,
+      "t": 32.634921,
+      "_seq": 8
+    },
+    "subtitleVtt": null,
+    "_seq": 8,
+    "_abandonedAt": null
+  },
+  "1AEC9D": {
+    "meta": {
+      "source": "direct",
+      "url": "http://127.0.0.1:11470/038aec704c54c337668f3dd42c9aa4e58e7b01a4/1?",
+      "isHls": false,
+      "isDash": false
+    },
+    "hostToken": "0d1b52d0-36b4-468e-bf96-780dcb745767",
+    "total": 0,
+    "state": {
+      "p": false,
+      "t": 57.179921,
+      "_seq": 14
+    },
+    "subtitleVtt": null,
+    "_seq": 14,
+    "_abandonedAt": null
+  },
+  "E2D704": {
+    "meta": {
+      "source": "direct",
+      "url": "http://127.0.0.1:11470/038aec704c54c337668f3dd42c9aa4e58e7b01a4/1?",
+      "isHls": false,
+      "isDash": false
+    },
+    "hostToken": "37f711d1-12c0-4922-8a9d-65c6c0af8c98",
+    "total": 0,
+    "state": {
+      "p": false,
+      "t": 72.23092,
+      "_seq": 6
+    },
+    "subtitleVtt": null,
+    "_seq": 6,
+    "_abandonedAt": null
+  },
+  "9E2C06": {
+    "meta": {
+      "source": "direct",
+      "url": "http://127.0.0.1:11470/038aec704c54c337668f3dd42c9aa4e58e7b01a4/1?",
+      "isHls": false,
+      "isDash": false
+    },
+    "hostToken": "abf806ec-32e5-4e2c-bc65-46901d136e5e",
+    "total": 0,
+    "state": {
+      "p": false,
+      "t": 150.198301,
+      "_seq": 2
+    },
+    "subtitleVtt": null,
+    "_seq": 2,
+    "_abandonedAt": null
+  },
+  "61C78E": {
+    "meta": null,
+    "hostToken": "c845189d-710b-41d3-9afd-0432bc66edbb",
+    "total": 0,
+    "state": {
+      "p": false,
+      "t": 0,
+      "_seq": 0
+    },
+    "subtitleVtt": null,
+    "_seq": 0,
+    "_abandonedAt": 1781903017108
+  },
+  "056B20": {
+    "meta": null,
+    "hostToken": "61bc05d9-b206-4b5e-9f75-af3d25acbac5",
+    "total": 0,
+    "state": {
+      "p": false,
+      "t": 0,
+      "_seq": 0
+    },
+    "subtitleVtt": null,
+    "_seq": 0,
+    "_abandonedAt": 1781905845366
+  },
+  "0AD6E5": {
+    "meta": {
+      "source": "youtube",
+      "videoId": "uf8qEZdwn4k"
+    },
+    "hostToken": "14403fad-c6e9-45b2-aaef-1769d1f6ff15",
+    "total": 0,
+    "state": {
+      "p": false,
+      "t": 12.862927,
+      "_seq": 4,
+      "savedAt": 1781906169809
+    },
+    "subtitleVtt": null,
+    "_seq": 4,
+    "_abandonedAt": 1781906169881
   }
 }

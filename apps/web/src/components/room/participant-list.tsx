@@ -2,7 +2,7 @@
 
 import { useRoomStore } from '@/stores/room-store';
 import { useAuthStore } from '@/stores/auth-store';
-import { Users, Crown, Mic, MicOff, Headphones, HeadphoneOff } from 'lucide-react';
+import { Users, Crown, Mic, MicOff, Headphones, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function ParticipantList() {
@@ -63,7 +63,7 @@ export function ParticipantList() {
                   <Mic size={14} />
                 )}
                 {participant.isDeafened ? (
-                  <HeadphoneOff size={14} className="text-red-400" />
+                  <VolumeX size={14} className="text-red-400" />
                 ) : (
                   <Headphones size={14} />
                 )}

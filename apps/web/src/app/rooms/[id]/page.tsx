@@ -10,6 +10,9 @@ import { getSyncSocket, getWebRTCSocket } from '@/lib/socket';
 import { VideoPlayer } from '@/components/player/video-player';
 import { SourceSelection } from '@/components/player/source-selection';
 import { DirectSourceInput } from '@/components/player/direct-source-input';
+import { YoutubeSourceInput } from '@/components/player/youtube-source-input';
+import { DriveSourceInput } from '@/components/player/drive-source-input';
+import { LocalSourceInput } from '@/components/player/local-source-input';
 import { ChatPanel } from '@/components/chat/chat-panel';
 import { ParticipantList } from '@/components/room/participant-list';
 import { VoiceControls } from '@/components/voice/voice-controls';
@@ -28,7 +31,7 @@ export default function RoomPage() {
   const [activeTab, setActiveTab] = useState<'chat' | 'participants' | 'voice'>('chat');
   const [connected, setConnected] = useState(false);
   const syncSocketRef = useRef<any>(null);
-  const [videoView, setVideoView] = useState<'player' | 'source-selection' | 'direct-input'>(
+  const [videoView, setVideoView] = useState<'player' | 'source-selection' | 'direct-input' | 'youtube-input' | 'drive-input' | 'local-input'>(
     roomStore.video ? 'player' : 'source-selection',
   );
 
@@ -201,10 +204,31 @@ export default function RoomPage() {
             {videoView === 'source-selection' && (
               <SourceSelection
                 onSelectDirect={() => setVideoView('direct-input')}
+                onSelectYoutube={() => setVideoView('youtube-input')}
+                onSelectDrive={() => setVideoView('drive-input')}
+                onSelectLocal={() => setVideoView('local-input')}
               />
             )}
             {videoView === 'direct-input' && (
               <DirectSourceInput
+                onBack={() => setVideoView('source-selection')}
+                onPlay={() => setVideoView('player')}
+              />
+            )}
+            {videoView === 'youtube-input' && (
+              <YoutubeSourceInput
+                onBack={() => setVideoView('source-selection')}
+                onPlay={() => setVideoView('player')}
+              />
+            )}
+            {videoView === 'drive-input' && (
+              <DriveSourceInput
+                onBack={() => setVideoView('source-selection')}
+                onPlay={() => setVideoView('player')}
+              />
+            )}
+            {videoView === 'local-input' && (
+              <LocalSourceInput
                 onBack={() => setVideoView('source-selection')}
                 onPlay={() => setVideoView('player')}
               />

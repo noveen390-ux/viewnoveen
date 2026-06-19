@@ -1,0 +1,101 @@
+{
+  "app": {
+    "name": "VIEWNOVEEN",
+    "tagline": "Watch together, in perfect sync"
+  },
+  "nav": {
+    "home": "Home",
+    "rooms": "My Rooms",
+    "join": "Join",
+    "newRoom": "New Room",
+    "settings": "Settings",
+    "signIn": "Sign in",
+    "signOut": "Sign out"
+  },
+  "landing": {
+    "headline": "Synchronized group watching, anywhere",
+    "subhead": "Create a room, share the code, and watch together as if you were in the same theater — no matter the distance.",
+    "ctaPrimary": "Create a Room",
+    "ctaSecondary": "Join with Code",
+    "features": {
+      "syncTitle": "Frame-accurate sync",
+      "syncDesc": "Play, pause, seek — everything stays in real-time.",
+      "sourcesTitle": "Multiple sources",
+      "sourcesDesc": "Direct URLs and YouTube today. More coming.",
+      "chatTitle": "Live chat",
+      "chatDesc": "Talk while you watch — without leaving the room.",
+      "recoveryTitle": "Full recovery",
+      "recoveryDesc": "Refresh, lose connection — everything comes back automatically."
+    }
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "email": "Email",
+    "password": "Password",
+    "displayName": "Display name",
+    "continueGoogle": "Continue with Google",
+    "continueGuest": "Continue as Guest",
+    "guestName": "Your name in the room",
+    "haveAccount": "Have an account?",
+    "noAccount": "No account?",
+    "or": "or",
+    "errors": {
+      "invalid": "Invalid credentials, try again.",
+      "emailRequired": "Email is required",
+      "passwordShort": "Password must be at least 6 characters"
+    }
+  },
+  "rooms": {
+    "myRooms": "My Rooms",
+    "noRooms": "No rooms yet — create your first one!",
+    "create": "Create new room",
+    "name": "Room name",
+    "code": "Room code",
+    "members": "members",
+    "host": "Host",
+    "you": "You",
+    "join": "Join",
+    "joinByCode": "Enter room code",
+    "leave": "Leave room",
+    "copyLink": "Copy link",
+    "linkCopied": "Link copied",
+    "notFound": "Room not found"
+  },
+  "player": {
+    "noSource": "Host hasn't set a source yet",
+    "loading": "Loading…",
+    "error": "Failed to load source",
+    "retry": "Retry",
+    "reconnecting": "Reconnecting…",
+    "sourceUrl": "Video URL",
+    "youtubeUrl": "YouTube URL",
+    "changeSource": "Change source",
+    "setSource": "Set source",
+    "play": "Play",
+    "pause": "Pause",
+    "seek": "Seek"
+  },
+  "chat": {
+    "title": "Chat",
+    "placeholder": "Type a message…",
+    "send": "Send",
+    "empty": "Start the conversation!",
+    "rateLimit": "Slow down — too many messages."
+  },
+  "settings": {
+    "title": "Settings",
+    "displayName": "Display name",
+    "language": "Language",
+    "ar": "العربية",
+    "en": "English",
+    "save": "Save",
+    "saved": "Saved"
+  },
+  "common": {
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "back": "Back",
+    "error": "Something went wrong"
+  }
+}

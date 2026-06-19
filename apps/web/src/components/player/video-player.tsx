@@ -15,7 +15,7 @@ export function VideoPlayer() {
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
-  const controlsTimeout = useRef<NodeJS.Timeout>();
+  const controlsTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const video = useRoomStore((s) => s.video);
   const roomId = useRoomStore((s) => s.id);
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -27,22 +27,55 @@ export function VideoPlayer() {
     }
   }, [roomId, accessToken]);
 
+  const isLocalAction = useRef(false);
+
   const handlePlay = () => {
-    videoRef.current?.play();
-    emitSync('play', { currentTime: videoRef.current?.currentTime || 0 });
+    if (videoRef.current) {
+      isLocalAction.current = true;
+      videoRef.current.play();
+      emitSync('play', { currentTime: videoRef.current.currentTime || 0 });
+      setTimeout(() => { isLocalAction.current = false; }, 300);
+    }
   };
 
   const handlePause = () => {
-    videoRef.current?.pause();
-    emitSync('pause', { currentTime: videoRef.current?.currentTime || 0 });
+    if (videoRef.current) {
+      isLocalAction.current = true;
+      videoRef.current.pause();
+      emitSync('pause', { currentTime: videoRef.current.currentTime || 0 });
+      setTimeout(() => { isLocalAction.current = false; }, 300);
+    }
   };
 
   const handleSeek = (time: number) => {
     if (videoRef.current) {
+      isLocalAction.current = true;
       videoRef.current.currentTime = time;
       emitSync('seek', { currentTime: time });
+      setTimeout(() => { isLocalAction.current = false; }, 300);
     }
   };
+
+  // Apply remote sync state changes to the video element
+  useEffect(() => {
+    if (!videoRef.current || !video || !videoRef.current.duration) return;
+    if (isLocalAction.current) return;
+
+    const videoEl = videoRef.current;
+
+    // Sync playing state
+    if (video.isPlaying && videoEl.paused) {
+      videoEl.play().catch(() => {});
+    } else if (!video.isPlaying && !videoEl.paused) {
+      videoEl.pause();
+    }
+
+    // Sync current time if drift exceeds threshold
+    const drift = Math.abs(videoEl.currentTime - video.currentTime);
+    if (drift > 1.5 && video.currentTime >= 0) {
+      videoEl.currentTime = video.currentTime;
+    }
+  }, [video?.isPlaying, video?.currentTime]);
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = parseFloat(e.target.value);

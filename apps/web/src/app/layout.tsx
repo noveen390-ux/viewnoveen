@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
+import { I18nProvider } from '@/lib/i18n';
 import { Toaster } from 'sonner';
 import './globals.css';
 
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           disableTransitionOnChange
         >
           <QueryProvider>
-            {children}
+            <I18nProvider>
+              {children}
+            </I18nProvider>
             <Toaster
               position="bottom-right"
               theme="dark"
