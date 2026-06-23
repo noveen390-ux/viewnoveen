@@ -1,245 +1,211 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl" class="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ViewNoveen - Watch Party</title>
+<title>VIEWNOVEEN — Watch Together, In Perfect Sync</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;min-width:0}
-:root{--bg:#0a0a0f;--surface:#16162a;--surface2:#1e1e32;--border:#2a2a3a;--primary:#5865F2;--primary-hover:#4752c4;--green:#3ba55c;--red:#ed4245;--text:#fff;--text2:#9b9ba8;--text3:#5c5c6e;--radius:8px;--font:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
-html{overflow-x:hidden;overflow-y:hidden;background:var(--bg)}
-body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;overflow-x:hidden;overflow-y:hidden;position:relative;overscroll-behavior:none;-webkit-overflow-scrolling:touch;touch-action:manipulation}
+:root{--bg:oklch(0.129 0.042 264.695);--surface:oklch(0.208 0.042 265.755);--surface-elevated:oklch(0.24 0.04 265);--border:oklch(1 0 0 / 10%);--input:oklch(1 0 0 / 15%);--primary:oklch(0.929 0.013 255.508);--primary-hover:oklch(0.87 0.015 255);--primary-foreground:oklch(0.208 0.042 265.755);--secondary:oklch(0.279 0.041 260.031);--accent:oklch(0.696 0.17 162.48);--text:oklch(0.984 0.003 247.858);--text-muted:oklch(0.704 0.04 256.788);--success:oklch(0.6 0.118 184.704);--destructive:oklch(0.704 0.191 22.216);--destructive-foreground:oklch(0.984 0.003 247.858);--radius:0.625rem;--font-sans:"Tajawal","Inter",system-ui,-apple-system,sans-serif}
+html{overflow-x:hidden;overflow-y:auto;background:var(--bg)}
+body{min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--font-sans);position:relative;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;touch-action:manipulation;overscroll-behavior:none}
+body::before{content:"";position:fixed;inset:0;background:radial-gradient(ellipse at top,oklch(0.929 0.013 255.508 / 0.06),transparent 50%),radial-gradient(ellipse at bottom,oklch(0.279 0.041 260.031 / 0.05),transparent 50%);pointer-events:none;z-index:-1}
 input,select,textarea{font-size:16px!important}
 input,button{font-family:inherit;font-size:14px}
 .hidden{display:none!important}
-.fade{animation:fade .3s}
+.fade{animation:fade .2s}
 @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+body::-webkit-scrollbar{width:8px}body::-webkit-scrollbar-track{background:var(--bg)}body::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;border:2px solid var(--bg)}body::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
 
 /* Landing */
-#landing{
-  display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;
-  padding:20px;background:radial-gradient(ellipse at 50% 0%,#1a1a3a 0%,#0a0a0f 60%)
-}
-.landing-card{
-  background:var(--surface);border:1px solid var(--border);border-radius:12px;
-  padding:40px 32px;width:100%;max-width:460px;text-align:center;animation:fade .5s
-}
-.landing-card h1{
-  font-size:32px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px;
-  background:linear-gradient(135deg,#5865F2,#9b59b6);-webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;background-clip:text
-}
-.landing-card .tagline{color:var(--text2);font-size:15px;margin-bottom:28px}
-.landing-forms{display:flex;flex-direction:column;gap:20px}
-.landing-forms .section{padding:16px;background:var(--surface2);border-radius:var(--radius);text-align:left}
-.landing-forms .section h3{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
-.landing-forms input{
-  width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);
-  background:var(--bg);color:var(--text);outline:none;transition:border .2s;margin-bottom:8px
-}
-.landing-forms input:focus{border-color:var(--primary)}
-.btn{
-  width:100%;padding:10px 16px;border:none;border-radius:var(--radius);
-  background:var(--primary);color:#fff;font-weight:600;cursor:pointer;transition:background .2s
-}
-.btn:hover{background:var(--primary-hover)}
-.btn-danger{background:var(--red)}
-.btn-danger:hover{background:#d03b3e}
-.source-btn{background:var(--surface2)!important;color:var(--text2)!important;border:1px solid var(--border)!important}
-.source-btn.active{background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important}
+#landing{display:flex;align-items:center;flex-direction:column;min-height:100vh;min-height:100dvh}
+.wrapper{position:relative;width:100%;height:100vh;height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:space-between;z-index:1}
+.image-container{position:absolute;inset:0;z-index:0;perspective:800px;overflow:hidden;pointer-events:none}
+.landing-graphic{width:100%;height:100%;object-fit:cover;transform-origin:center center;will-change:transform;backface-visibility:hidden;filter:blur(0.3px)}
+.hero-content{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:540px;padding:20px 20px 0;flex:1;justify-content:center}
+.hero-title{font-size:clamp(36px,7vw,72px);font-weight:800;letter-spacing:4px;text-align:center;white-space:nowrap;pointer-events:none;line-height:1.15;color:#fff;mix-blend-mode:difference;text-shadow:0 0 8px rgba(255,255,255,0.15);animation:heroIn .9s .1s both}
+@keyframes heroIn{from{opacity:0;transform:translateY(-15px)}to{opacity:1;transform:translateY(0)}}
+.hero-tagline{font-size:15px;text-align:center;animation:fade .5s .2s both;letter-spacing:.5px;font-weight:400;mix-blend-mode:difference;color:#fff;opacity:0.8}
+
+.hero-forms{position:relative;z-index:2;width:100%;max-width:700px;padding:16px 20px 20px;animation:fade .5s .35s both}
+.hero-inline-inputs{display:flex;gap:8px;align-items:flex-end;justify-content:center}
+.hero-btn-row{display:flex;gap:10px;justify-content:center;margin-top:14px}
+.hero-input-block{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0}
+.hero-input-block--code{flex:0.55;min-width:70px}
+.hero-input-block-label{font-size:10px;font-weight:600;color:oklch(0.8 0.04 256.788 / 0.6);letter-spacing:1px;text-transform:uppercase;text-align:center}
+.hero-input-block input{width:100%;padding:11px 8px;border:none;border-bottom:2px solid oklch(1 0 0 / 0.15);background:transparent;color:#fff;outline:none;transition:all .25s;font-size:15px;min-width:0;box-sizing:border-box;text-align:center}
+.hero-input-block input:focus{border-bottom-color:oklch(0.7 0.15 300);box-shadow:0 4px 20px -8px oklch(0.7 0.15 300 / 0.25)}
+.hero-input-block input::placeholder{color:oklch(0.704 0.04 256.788 / 0.3)}
+.room-input-line{width:100%;padding:10px 8px;border:none;border-bottom:2px solid oklch(1 0 0 / 0.12);background:transparent;color:#fff;outline:none;font-size:14px;text-align:center;transition:all .25s;box-sizing:border-box}
+.room-input-line:focus{border-bottom-color:oklch(0.7 0.15 300);box-shadow:0 4px 20px -8px oklch(0.7 0.15 300 / 0.25)}
+.room-input-line::placeholder{color:oklch(0.7 0.04 256.788 / 0.3)}
+/* Glass button — global */
+.btn-glass{width:auto!important;padding:6px 14px;background:oklch(1 0 0 / 0.06)!important;border:1px solid oklch(1 0 0 / 0.12)!important;border-radius:999px!important;color:#fff!important;font-weight:600;letter-spacing:.3px;backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;transition:all .25s;box-shadow:none!important;font-size:13px}
+.btn-glass::after{display:none!important}
+.btn-glass:hover{border-color:oklch(0.7 0.15 300)!important;background:oklch(0.7 0.15 300 / 0.1)!important;box-shadow:0 0 30px oklch(0.7 0.15 300 / 0.15)!important;transform:translateY(-2px)!important}
+.btn-glass:active{transform:translateY(0)!important}
+.btn-glass-danger{border-color:oklch(0.5 0.15 30 / 0.5)!important}
+.btn-glass-danger:hover{border-color:oklch(0.6 0.2 30)!important;background:oklch(0.5 0.15 30 / 0.2)!important;box-shadow:0 0 30px oklch(0.5 0.15 30 / 0.2)!important}
+.btn{width:100%;padding:10px 16px;border:none;border-radius:var(--radius);background:var(--primary);background:linear-gradient(135deg,var(--primary),oklch(0.85 0.02 260));color:var(--primary-foreground);font-weight:700;cursor:pointer;transition:all .25s;position:relative;overflow:hidden;letter-spacing:.3px}
+.btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 35%,oklch(1 0 0 / 0.15) 50%,transparent 65%);transform:translateX(-100%);transition:transform .6s}
+.btn:hover::after{transform:translateX(100%)}
+.btn:hover{transform:translateY(-2px);box-shadow:0 4px 25px oklch(0.929 0.013 255.508 / 0.3)}
+.btn:active{transform:translateY(0)}
+.btn-danger{background:var(--destructive);color:var(--destructive-foreground)}
+.btn-danger::after{display:none}
+.source-btn{backdrop-filter:blur(8px)!important;-webkit-backdrop-filter:blur(8px)!important}
+.source-btn.active{background:oklch(0.7 0.15 300 / 0.2)!important;border-color:oklch(0.7 0.15 300)!important;color:#fff!important;box-shadow:0 0 20px oklch(0.7 0.15 300 / 0.15)!important}
+.source-btn:hover{}
+/* Features section (static) */
+.landing-features{text-align:center;max-width:900px;width:100%;padding:20px;margin-top:60px;flex-shrink:0}
+.landing-features h2{font-size:clamp(1.3rem,3vw,2rem);font-weight:700;letter-spacing:-.5px;color:var(--primary);background:linear-gradient(135deg,var(--primary),var(--primary));background:linear-gradient(135deg,var(--primary),oklch(0.8 0.2 300));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:32px}
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;text-align:center}
+.feature-item{padding:24px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);transition:transform .35s,box-shadow .35s,border-color .35s;cursor:default}
+.feature-item:hover{transform:translateY(-6px);box-shadow:0 12px 40px rgba(0,0,0,0.3);border-color:oklch(0.929 0.013 255.508 / 0.2)}
+.feature-item .icon{font-size:30px;margin-bottom:12px;display:block;transition:transform .35s,filter .35s}
+.feature-item:hover .icon{transform:scale(1.25);filter:brightness(1.3) drop-shadow(0 0 10px oklch(0.929 0.013 255.508 / 0.3))}
+.feature-item h3{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
+.feature-item p{font-size:13px;color:var(--text-muted);line-height:1.5}
 
 /* Toast */
-#toast{
-  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
-  background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);
-  padding:12px 20px;font-size:14px;z-index:999;opacity:0;transition:opacity .3s;
-  pointer-events:none;white-space:nowrap
-}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:oklch(0.12 0.04 265 / 0.7);border:1px solid oklch(0.929 0.013 255.508 / 0.1);border-radius:var(--radius);padding:12px 20px;font-size:14px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 4px 30px rgba(0,0,0,.4);color:oklch(0.9 0.02 260)}
 #toast.show{opacity:1}
 
 /* Room */
-#room{display:flex;flex-direction:column;height:100vh;height:100dvh}
-.room-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);
-  flex-shrink:0;gap:12px;flex-wrap:wrap
-}
-.room-header .info{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.room-header .info .code{font-size:15px;font-weight:600;cursor:pointer;user-select:none}
-.room-header .info .code:hover{color:var(--primary)}
-.room-header .info .badge{
-  font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface2);color:var(--text2);
-  display:flex;align-items:center;gap:4px
-}
-.room-header .info .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
-.room-header .actions{display:flex;gap:8px}
-.room-header .actions .btn{width:auto;padding:6px 14px;font-size:13px}
+#room{display:flex;flex-direction:column;height:100vh;height:100dvh;position:relative}
+#room-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:0.35;pointer-events:none}
+#room-bg video{width:100%;height:100%;object-fit:cover;will-change:transform;backface-visibility:hidden;filter:blur(0.3px)}
+.room-header{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;flex-shrink:0;gap:8px;position:sticky;top:0;z-index:50;background:transparent}
+.room-header .info{display:flex;align-items:center;gap:6px}
+.room-header .info .code{font-size:clamp(14px,2vw,20px);font-weight:700;cursor:pointer;user-select:none;letter-spacing:2px;font-family:"Inter","Tajawal",monospace;color:#fff;mix-blend-mode:difference;text-shadow:0 0 10px rgba(255,255,255,0.08);transition:all .25s}
+.room-header .info .code:hover{text-shadow:0 0 16px rgba(255,255,255,0.2)}
+.room-header .info .badge{font-size:10px;padding:2px 8px;border-radius:999px;background:oklch(0.08 0.04 265 / 0.2);color:oklch(0.8 0.04 256.788 / 0.6);display:flex;align-items:center;gap:3px;border:1px solid oklch(1 0 0 / 0.06);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.room-header .info .badge .dot{width:4px;height:4px;border-radius:50%;background:oklch(0.7 0.15 300);display:inline-block;box-shadow:0 0 6px oklch(0.7 0.15 300 / 0.5)}
+.room-header .actions{display:flex;gap:4px}
+.room-header .actions .btn-glass{padding:4px 10px!important;font-size:11px!important}
 
 /* Content */
-.room-content{display:flex;flex:1;min-height:0;overscroll-behavior:contain}
+.room-content{display:flex;flex:1;min-height:0;overscroll-behavior:contain;position:relative;z-index:1}
 
 /* Video */
-.video-section{
-  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  background:#000;position:relative;min-width:0
-}
+.video-section{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;min-width:0}
+.video-section:has(#playerArea:not(.hidden)){background:transparent;backdrop-filter:none}
 .video-section video{width:100%;height:100%;object-fit:contain;max-height:100%}
-.video-section .center-msg{
-  color:var(--text2);font-size:16px;text-align:center;padding:40px
-}
+.video-section .center-msg{color:oklch(0.85 0.04 256.788 / 0.8);font-size:16px;text-align:center;padding:40px}
 .video-section .center-msg .icon{font-size:48px;margin-bottom:12px}
 
 /* Upload */
-.upload-area{
-  text-align:center;padding:40px;cursor:pointer
-}
-.upload-area .box{
-  border:2px dashed var(--border);border-radius:12px;padding:40px 20px;
-  transition:border .2s;cursor:pointer
-}
-.upload-area .box:hover{border-color:var(--primary)}
-.upload-area .box .icon{font-size:40px;margin-bottom:12px}
-.upload-area .box p{color:var(--text2);font-size:14px;margin-top:8px}
+.upload-area{text-align:center;padding:24px;cursor:pointer}
+.upload-area .box{border:1.5px dashed oklch(0.7 0.1 280 / 0.2);border-radius:var(--radius);padding:32px 20px;transition:all .3s;cursor:pointer;background:oklch(0.04 0.03 265 / 0.15);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.upload-area .box:hover{border-color:oklch(0.7 0.15 300 / 0.4);background:oklch(0.08 0.04 265 / 0.25);box-shadow:0 0 50px oklch(0.7 0.15 300 / 0.1)}
+.upload-area .box .icon{font-size:36px;margin-bottom:8px}
+.upload-area .box p{color:oklch(0.8 0.04 256.788 / 0.65);font-size:13px;margin-top:6px}
 .upload-area input{display:none}
 
 /* Controls */
-.controls{
-  position:absolute;bottom:0;left:0;right:0;
-  background:linear-gradient(transparent,rgba(0,0,0,.85));
-  padding:40px 16px 12px;display:flex;align-items:center;gap:10px;
-  opacity:0;transition:opacity .3s;z-index:25
-}
+.controls{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,oklch(0 0 0 / 0.5));padding:40px 16px 12px;display:flex;align-items:center;gap:10px;opacity:0;transition:opacity .3s;z-index:10;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 .video-section:hover .controls,.controls.show{opacity:1}
-.controls button{
-  background:none;border:none;color:#fff;font-size:22px;cursor:pointer;
-  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
-  border-radius:50%;transition:background .2s;flex-shrink:0;touch-action:manipulation
-}
-.controls .seek-btn{font-size:13px;font-weight:700;width:32px;height:32px}
-.controls button:hover{background:rgba(255,255,255,.1)}
-.controls input[type=range]{
-  flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;
-  background:rgba(255,255,255,.3);outline:none;cursor:pointer;min-width:0
-}
-.controls input[type=range]::-webkit-slider-thumb{
-  -webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;
-  background:var(--primary);border:2px solid #fff;cursor:pointer
-}
-.controls input[type=range]::-moz-range-thumb{
-  width:14px;height:14px;border-radius:50%;background:var(--primary);
-  border:2px solid #fff;cursor:pointer
-}
-.controls .time{font-size:13px;color:rgba(255,255,255,.8);white-space:nowrap;font-variant-numeric:tabular-nums}
-.controls .live-badge{
-  font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;
-  letter-spacing:1px;display:flex;align-items:center;gap:4px;flex-shrink:0
-}
-.controls .live-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--red);animation:pulse 1.5s infinite}
+.controls button{background:oklch(1 0 0 / 0.06);border:1px solid oklch(1 0 0 / 0.08);color:#fff;font-size:20px;cursor:pointer;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all .2s;flex-shrink:0;touch-action:manipulation;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.controls .seek-btn{font-size:12px;font-weight:700;width:32px;height:32px}
+.controls button:hover{background:oklch(0.7 0.15 300 / 0.3);border-color:oklch(0.7 0.15 300 / 0.3);transform:scale(1.1);box-shadow:0 0 20px oklch(0.7 0.15 300 / 0.15)}
+.controls input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:oklch(1 0 0 / 0.15);outline:none;cursor:pointer;min-width:0}
+.controls input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:oklch(0.7 0.15 300);border:2px solid #fff;cursor:pointer;box-shadow:0 0 16px oklch(0.7 0.15 300 / 0.5)}
+.controls input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:oklch(0.7 0.15 300);border:2px solid #fff;cursor:pointer}
+.controls .time{font-size:13px;color:oklch(1 0 0 / 0.8);white-space:nowrap;font-variant-numeric:tabular-nums}
+.controls .live-badge{font-size:11px;font-weight:700;color:oklch(0.7 0.15 300);letter-spacing:1px;display:flex;align-items:center;gap:4px;flex-shrink:0}
+.controls .live-badge .dot{width:6px;height:6px;border-radius:50%;background:oklch(0.7 0.15 300);animation:pulse 1.5s infinite;box-shadow:0 0 10px oklch(0.7 0.15 300 / 0.6)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* Chat */
-.chat-section{
-  width:320px;flex-shrink:0;display:flex;flex-direction:column;
-  background:var(--surface);border-left:1px solid var(--border)
+.chat-section{width:320px;flex-shrink:0;display:flex;flex-direction:column;background:oklch(0.07 0.04 265 / 0.35);border-left:1px solid oklch(0.929 0.013 255.508 / 0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.chat-section.collapsed{width:auto;min-width:0}
+.chat-section.collapsed .chat-msgs,.chat-section.collapsed .chat-input{display:none}
+.chat-section.collapsed .chat-header{border-bottom:none}
+@media(max-width:768px){
+  .chat-section.collapsed{top:auto;bottom:0;height:auto;min-height:0;width:100%!important}
 }
-.chat-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0
-}
-.chat-header h3{font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)}
-.chat-header button{
-  background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;
-  width:28px;height:28px;border-radius:6px;display:none;align-items:center;justify-content:center
-}
-.chat-header button:hover{background:var(--surface2)}
-.chat-msgs{
-  flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain
-}
+.chat-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid oklch(0.929 0.013 255.508 / 0.05);flex-shrink:0}
+.chat-header h3{font-size:13px;font-weight:600;letter-spacing:.5px;color:oklch(0.85 0.04 256.788 / 0.7);text-transform:uppercase}
+.chat-header button{background:none;border:none;color:oklch(0.8 0.04 256.788 / 0.4);font-size:20px;cursor:pointer;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.chat-header button:hover{background:oklch(1 0 0 / 0.06)}
+.chat-msgs{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain}
 .chat-msgs .msg{font-size:13px;line-height:1.4;animation:fade .2s}
-.chat-msgs .msg .name{font-weight:600;margin-right:6px}
-.chat-msgs .msg .text{color:var(--text)}
-.chat-msgs .msg .time{
-  font-size:11px;color:var(--text3);margin-left:6px;float:right
-}
-.chat-msgs .sys{font-size:12px;color:var(--text3);text-align:center;padding:4px 0}
-.chat-input{
-  display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0
-}
-.chat-input input{
-  flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);
-  background:var(--bg);color:var(--text);outline:none;transition:border .2s;min-width:0
-}
-.chat-input input:focus{border-color:var(--primary)}
-.chat-input button{
-  padding:8px 16px;border:none;border-radius:var(--radius);
-  background:var(--primary);color:#fff;font-weight:600;cursor:pointer;transition:background .2s;flex-shrink:0
-}
-.chat-input button:hover{background:var(--primary-hover)}
+.chat-msgs .msg .name{font-weight:600;margin-right:6px;background:linear-gradient(135deg,#c084fc,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.chat-msgs .msg .text{color:oklch(0.9 0.02 260 / 0.85)}
+.chat-msgs .msg .time{font-size:11px;color:oklch(0.7 0.04 256.788 / 0.35);margin-left:6px}
+.chat-msgs .sys{font-size:12px;color:oklch(0.75 0.04 256.788 / 0.5);text-align:center;padding:4px 0}
+.chat-input{display:flex;gap:8px;padding:12px 16px;border-top:1px solid oklch(0.929 0.013 255.508 / 0.05);flex-shrink:0}
+.chat-input input{flex:1;padding:8px 12px;border:1px solid oklch(1 0 0 / 0.08);border-radius:calc(var(--radius)*0.8);background:oklch(0.08 0.04 265 / 0.25);color:oklch(0.9 0.02 260);outline:none;transition:all .2s;min-width:0;font-family:system-ui,-apple-system,sans-serif}
+.chat-input input:focus{border-color:oklch(0.7 0.15 300);box-shadow:0 0 0 3px oklch(0.7 0.15 300 / 0.12)}
+.chat-input input::placeholder{color:oklch(0.7 0.04 256.788 / 0.25)}
+.chat-input button{padding:8px 16px;border:none;border-radius:calc(var(--radius)*0.8);background:linear-gradient(135deg,oklch(0.7 0.15 300),oklch(0.6 0.12 240));color:#fff;font-weight:600;cursor:pointer;transition:all .2s;flex-shrink:0}
+.chat-input button:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 4px 25px oklch(0.7 0.15 300 / 0.25)}
+.host-only{display:none}
 
-/* Scroll */
 .chat-msgs::-webkit-scrollbar,.video-section::-webkit-scrollbar{width:6px}
 .chat-msgs::-webkit-scrollbar-track,.video-section::-webkit-scrollbar-track{background:transparent}
-.chat-msgs::-webkit-scrollbar-thumb,.video-section::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.chat-msgs::-webkit-scrollbar-thumb,.video-section::-webkit-scrollbar-thumb{background:oklch(1 0 0 / 0.08);border-radius:3px}
 
 /* Mobile (tablets) */
 @media(max-width:900px){
-  .room-header{padding:8px 14px;gap:6px}
-  .room-header .info{gap:8px}
-  .room-header .info .code{font-size:13px}
-  .room-header .actions .btn{padding:5px 10px;font-size:12px}
-  .landing-card{padding:28px 20px}
+  .room-header{padding:6px 12px}
+  .room-header .info .code{font-size:clamp(13px,2.5vw,18px)}
+  .room-header .info .badge{font-size:9px;padding:1px 6px}
+  .room-header .actions .btn-glass{padding:3px 8px!important;font-size:10px!important}
+  .hero-content{max-width:500px;padding:20px 20px 0}
+  .hero-forms{padding:12px 16px 24px}
+  .hero-inline-inputs{gap:6px}
+  .hero-input-block input{padding:9px 6px;font-size:14px}
+  .hero-input-block-label{font-size:9px}
+  .btn-glass{padding:5px 10px;font-size:12px}
 }
 
 /* Mobile (phones) — fixed viewport fill with 60/40 split */
 @media(max-width:768px){
   /* === LANDING === */
-  .landing-card{padding:24px 16px}
-  .landing-card h1{font-size:28px}
-  .landing-card .tagline{margin-bottom:20px}
-  .landing-forms .section{padding:12px}
+  .hero-title{font-size:clamp(28px,5vw,40px)}
 
   /* === ROOM: fixed fills viewport exactly, no overflow === */
   #room{position:fixed;top:0;left:0;right:0;bottom:0;height:auto;display:flex;flex-direction:column}
-  .room-header{
-    position:absolute;top:0;left:0;right:0;z-index:20;
-    padding:6px 12px;min-height:38px;display:flex;align-items:center;justify-content:space-between;
-    background:rgba(22,22,42,0.92);backdrop-filter:blur(8px);
-    -webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--border)
-  }
-  .room-header .info .code{font-size:12px}
-  .room-header .info .badge{font-size:11px;padding:2px 8px}
-  .room-header .actions{gap:4px}
-  .room-header .actions .btn{padding:4px 8px;font-size:11px;min-height:44px;display:flex;align-items:center}
-  #sourceSelector{flex-wrap:wrap;gap:6px}
+  .room-header{padding:6px 10px}
+  .room-header .info .code{font-size:clamp(12px,3vw,16px);letter-spacing:1.5px}
+  .room-header .info .badge{font-size:9px;padding:1px 6px}
+  .room-header .actions .btn-glass{padding:3px 8px!important;font-size:10px!important}
+  #sourceSelector{flex-wrap:wrap;gap:4px}
 
   /* === CONTENT: fills room minus floating header === */
   .room-content{position:relative;flex:1;min-height:0}
 
   /* === VIDEO: exactly 60vh, anchored top === */
-  .video-section{position:absolute;top:0;left:0;right:0;height:60vh;display:flex;align-items:center;justify-content:center;background:#000;min-width:0}
-  .video-section video{width:100%;height:100%;object-fit:contain}
+  .video-section{position:absolute;top:0;left:0;right:0;height:60vh;display:flex;align-items:center;justify-content:center;min-width:0}
+  .video-section:has(#playerArea:not(.hidden)){background:transparent;backdrop-filter:none}
 
   /* === CONTROLS: always visible, bottom of 60vh === */
-  .controls{position:absolute;bottom:0;left:0;right:0;padding:40px 8px 8px;opacity:1!important;display:flex;align-items:center;gap:8px;background:linear-gradient(transparent,rgba(0,0,0,.85));z-index:25}
-  .controls button{font-size:22px;width:44px;height:44px;flex-shrink:0;background:none;border:none;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .controls{position:absolute;bottom:0;left:0;right:0;padding:40px 8px 8px;opacity:1!important;display:flex;align-items:center;gap:8px;background:linear-gradient(transparent,oklch(0 0 0 / 0.5));z-index:10;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+  .controls button{flex-shrink:0}
   .controls .seek-btn{font-size:12px;width:44px;height:44px}
-  .controls input[type=range]{flex:1;min-width:0;height:6px;-webkit-appearance:none;appearance:none;background:rgba(255,255,255,.3);border-radius:2px;outline:none;cursor:pointer}
-  .controls input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--primary);border:3px solid #fff;cursor:pointer}
-  .controls input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--primary);border:3px solid #fff;cursor:pointer}
-  .controls .time{font-size:11px;color:rgba(255,255,255,.8);white-space:nowrap;flex-shrink:0}
-  .controls .live-badge{font-size:10px;flex-shrink:0;color:var(--red);font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:4px}
-  .controls .live-badge .dot{width:5px;height:5px;border-radius:50%;background:var(--red);animation:pulse 1.5s infinite}
+  .controls button:hover{background:oklch(0.7 0.15 300 / 0.35);transform:scale(1.1)}
+  .controls input[type=range]{flex:1;min-width:0;height:6px;-webkit-appearance:none;appearance:none;background:oklch(1 0 0 / 0.2);border-radius:2px;outline:none;cursor:pointer}
+  .controls input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:oklch(0.7 0.15 300);border:3px solid #fff;cursor:pointer;box-shadow:0 0 12px oklch(0.7 0.15 300 / 0.4)}
+  .controls input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:oklch(0.7 0.15 300);border:3px solid #fff;cursor:pointer}
+  .controls .time{font-size:11px;color:oklch(1 0 0 / 0.75);white-space:nowrap;flex-shrink:0}
+  .controls .live-badge{font-size:10px;flex-shrink:0;color:oklch(0.7 0.15 300);font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:4px}
+  .controls .live-badge .dot{width:5px;height:5px;border-radius:50%;background:oklch(0.7 0.15 300);animation:pulse 1.5s infinite;box-shadow:0 0 8px oklch(0.7 0.15 300 / 0.5)}
 
   /* === CHAT: exactly bottom 40vh, anchored at 60vh === */
-  .chat-section{position:absolute;top:60vh;left:0;right:0;bottom:0;width:100%!important;display:flex;flex-direction:column;background:var(--surface);border-left:none;border-top:1px solid var(--border)}
-  .chat-header{padding:8px 12px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
-  .chat-header h3{font-size:13px;color:var(--text2);font-weight:600;text-transform:uppercase}
-  .chat-header button{display:flex;width:44px;height:44px;font-size:18px;background:none;border:none;color:var(--text2);cursor:pointer;align-items:center;justify-content:center;border-radius:6px}
+  .chat-section{position:absolute;top:60vh;left:0;right:0;bottom:0;width:100%!important;display:flex;flex-direction:column;background:oklch(0.06 0.04 265 / 0.3);border-left:none;border-top:1px solid oklch(0.929 0.013 255.508 / 0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+  .chat-header{padding:8px 12px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid oklch(0.929 0.013 255.508 / 0.05)}
+  .chat-header h3{font-size:13px;color:oklch(0.85 0.04 256.788 / 0.7);font-weight:600;text-transform:uppercase}
+  .chat-header button{display:flex;width:44px;height:44px;font-size:18px;background:none;border:none;color:oklch(0.8 0.04 256.788 / 0.4);cursor:pointer;align-items:center;justify-content:center;border-radius:6px}
   .chat-msgs{flex:1;overflow-y:auto;padding:6px 10px;display:flex;flex-direction:column;gap:4px;min-height:0}
   .chat-msgs .msg{font-size:12px}
-  .chat-input{display:flex;gap:8px;padding:8px 10px;border-top:1px solid var(--border);flex-shrink:0}
-  .chat-input input{flex:1;padding:6px 10px;font-size:14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);outline:none;min-width:0}
-  .chat-input button{padding:6px 12px;font-size:13px;min-height:44px;border:none;border-radius:var(--radius);background:var(--primary);color:#fff;font-weight:600;cursor:pointer;flex-shrink:0}
+  .chat-input{display:flex;gap:8px;padding:8px 10px;border-top:1px solid oklch(0.929 0.013 255.508 / 0.05);flex-shrink:0}
+  .chat-input input{flex:1;padding:6px 10px;font-size:14px;border:1px solid oklch(1 0 0 / 0.08);border-radius:calc(var(--radius)*0.8);background:oklch(0.08 0.04 265 / 0.25);color:oklch(0.9 0.02 260);outline:none;min-width:0;font-family:system-ui,-apple-system,sans-serif}
+  .chat-input input:focus{border-color:oklch(0.7 0.15 300);box-shadow:0 0 0 3px oklch(0.7 0.15 300 / 0.12)}
+  .chat-input button{flex-shrink:0;cursor:pointer}
 
   /* === UPLOAD AREA === */
   .upload-area{padding:16px}
@@ -256,19 +222,20 @@ input,button{font-family:inherit;font-size:14px}
 }
 
 @media(max-width:480px){
-  .landing-card{padding:20px 12px;border-radius:8px}
-  .landing-card h1{font-size:24px}
-  .landing-card .tagline{font-size:14px;margin-bottom:16px}
-  .landing-forms{gap:14px}
-  .landing-forms .section{padding:10px}
-  .landing-forms input{padding:8px 10px;font-size:14px}
-  .landing-forms .section h3{font-size:12px;margin-bottom:8px}
-  .btn{padding:8px 14px;font-size:13px}
-  .room-header{padding:4px 10px;min-height:34px}
-  .room-header .info .code{font-size:11px}
-  .room-header .info .badge{font-size:10px;padding:2px 6px}
-  .room-header .actions .btn{padding:3px 6px;font-size:10px}
-  .room-header .info .badge .dot{width:5px;height:5px}
+  .hero-title{font-size:clamp(24px,6vw,32px)}
+  .hero-tagline{font-size:14px}
+  .hero-forms{padding:10px 12px 20px}
+  .hero-inline-inputs{flex-wrap:wrap;gap:6px}
+  .hero-input-block{min-width:70px;flex:1}
+  .hero-input-block--code{min-width:60px;flex:0.5}
+  .hero-input-block input{padding:8px 6px;font-size:13px}
+  .hero-input-block-label{font-size:9px}
+  .btn-glass{padding:5px 10px;font-size:11px}
+  .room-header{padding:5px 10px}
+  .room-header .info .code{font-size:clamp(12px,3vw,16px);letter-spacing:1.5px}
+  .room-header .info .badge{font-size:8px;padding:1px 5px}
+  .room-header .actions .btn-glass{padding:3px 7px!important;font-size:9px!important}
+  .room-header .info .badge .dot{width:3px;height:3px}
   .controls{padding-top:32px;gap:6px}
   .controls button{font-size:18px;width:44px;height:44px}
   .controls .seek-btn{font-size:11px;width:44px;height:44px}
@@ -282,18 +249,18 @@ input,button{font-family:inherit;font-size:14px}
 }
 
 @media(max-width:360px){
-  .landing-card{padding:16px 10px}
-  .landing-card h1{font-size:20px}
-  .landing-card .tagline{font-size:13px;margin-bottom:12px}
-  .landing-forms{gap:10px}
-  .landing-forms .section{padding:8px}
-  .landing-forms input{padding:6px 8px;font-size:13px}
-  .btn{padding:6px 10px;font-size:12px}
-  .room-header{padding:3px 8px;min-height:30px}
-  .room-header .info{gap:4px}
-  .room-header .info .code{font-size:10px}
-  .room-header .actions{gap:2px}
-  .room-header .actions .btn{padding:2px 5px;font-size:9px}
+  .hero-title{font-size:clamp(20px,5vw,24px)}
+  .hero-tagline{font-size:13px}
+  .hero-forms{padding:6px 10px 16px}
+  .hero-inline-inputs{flex-wrap:wrap;gap:4px}
+  .hero-input-block{min-width:50px;flex:1}
+  .hero-input-block--code{min-width:40px;flex:0.4}
+  .hero-input-block input{padding:6px 4px;font-size:11px}
+  .hero-input-block-label{font-size:8px}
+  .btn-glass{padding:5px 10px;font-size:11px}
+  .room-header{padding:4px 8px}
+  .room-header .info .code{font-size:clamp(11px,2.5vw,14px);letter-spacing:1px}
+  .room-header .actions .btn-glass{padding:2px 6px!important;font-size:8px!important}
   .controls{padding-top:24px;gap:4px}
   .controls button{font-size:16px;width:44px;height:44px}
   .controls .seek-btn{font-size:10px;width:44px;height:44px}
@@ -316,12 +283,8 @@ input,button{font-family:inherit;font-size:14px}
 }
 
 /* Subtitles */
-.sub-controls{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:auto}
-.sub-controls button{
-  background:none;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);
-  font-size:11px;padding:2px 6px;border-radius:4px;cursor:pointer;transition:all .2s;
-  font-family:var(--font);white-space:nowrap;line-height:1.4
-}
+.sub-controls{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-right:auto}
+.sub-controls button{background:none;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:11px;padding:2px 6px;border-radius:4px;cursor:pointer;transition:all .2s;font-family:var(--font-sans);white-space:nowrap;line-height:1.4}
 .sub-controls button:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.4)}
 .sub-controls .sub-file{font-size:11px;color:rgba(255,255,255,.5);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sub-controls .sub-delay{font-size:11px;color:rgba(255,255,255,.7);min-width:36px;text-align:center;font-variant-numeric:tabular-nums}
@@ -338,85 +301,139 @@ input,button{font-family:inherit;font-size:14px}
   .sub-controls .sub-delay{font-size:9px;min-width:26px}
 }
 
-/* Fullscreen: playerArea fills viewport */
-#playerArea:fullscreen{width:100vw!important;height:100vh!important;background:#000;display:flex;align-items:center;justify-content:center}
-#playerArea:-webkit-full-screen{width:100vw!important;height:100vh!important;background:#000;display:flex;align-items:center;justify-content:center}
-#playerArea:fullscreen::backdrop{background:#000}
-#playerArea:fullscreen video,#playerArea:-webkit-full-screen video{width:100%;height:100%;object-fit:contain;max-height:100vh}
-#playerArea:fullscreen .controls{z-index:25}
+/* Fullscreen */
+#playerArea:fullscreen{width:100vw!important;height:100vh!important;background:#000}
+#playerArea:fullscreen .controls{z-index:20;opacity:0;pointer-events:none}
+#playerArea:fullscreen .controls.show{opacity:1;pointer-events:auto}
+#playerArea:fullscreen #youtubePlayer,
+#playerArea:fullscreen #youtubePlayer iframe{pointer-events:none!important}
+#playerArea:fullscreen #directIframe{pointer-events:none!important}
+.controls.viewer .host-only{display:none!important}
+.controls:not(.viewer) .host-only{display:flex!important}
+.sub-search-result:hover{border-color:var(--primary)!important;background:oklch(0.929 0.013 255.508 / 0.08)!important}
 
-/* Subtitle search results hover */
-.sub-search-result:hover{border-color:var(--primary)!important;background:rgba(88,101,242,0.08)!important}
-
-/* Floating chat overlay inside playerArea */
-#fsChatPanel{display:none}
+/* Floating chat overlay */
+#fsChatPanel{display:none;background:oklch(0.08 0.03 265 / 0.85)!important;border-right:1px solid oklch(0.929 0.013 255.508 / 0.06)!important;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
 #fsChatPanel.show{display:flex}
 #fsChatMessages{overscroll-behavior:contain}
-
 @media(max-width:768px){
-  #fsChatPanel{width:100%!important;border-left:none!important}
+  #fsChatPanel{width:100%!important;border-right:none!important}
   .chat-msgs{overscroll-behavior:contain}
   .room-content{overscroll-behavior:contain}
   #fsChatMessages{overscroll-behavior:contain}
-  /* Safe-area insets (mobile) */
   .room-header{padding-top:calc(6px + env(safe-area-inset-top));padding-left:calc(12px + env(safe-area-inset-left));padding-right:calc(12px + env(safe-area-inset-right))}
   .controls{padding-bottom:calc(8px + env(safe-area-inset-bottom));padding-left:calc(8px + env(safe-area-inset-left));padding-right:calc(8px + env(safe-area-inset-right))}
   .chat-input{padding-bottom:calc(8px + env(safe-area-inset-bottom))}
   #toast{bottom:calc(16px + env(safe-area-inset-bottom))}
 }
-/* Safe-area insets (universal — applies on all screen sizes) */
 .room-header{padding-top:calc(16px + env(safe-area-inset-top));padding-left:calc(16px + env(safe-area-inset-left));padding-right:calc(16px + env(safe-area-inset-right))}
 .controls{padding-bottom:calc(12px + env(safe-area-inset-bottom));padding-left:calc(16px + env(safe-area-inset-left));padding-right:calc(16px + env(safe-area-inset-right))}
 .chat-input{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
 #toast{bottom:calc(24px + env(safe-area-inset-bottom))}
 #playerArea:fullscreen{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+#anime-background{position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;overflow:hidden;background:linear-gradient(135deg,#1a1b41 0%,#2d1b69 35%,#5b4b8a 70%,#b487c7 100%);background-size:300% 300%;animation:softGradientShift 35s ease infinite;will-change:background-position}
+#anime-background .star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;opacity:0;animation:twinkle 3s ease-in-out infinite}
+#anime-background .cloud{position:absolute;border-radius:50%;opacity:0.15;filter:blur(40px);animation:cloudDrift 60s linear infinite}
+#anime-background .cloud:nth-child(1){width:300px;height:120px;background:#b4a5d0;top:15%;left:-10%;animation-duration:55s}
+#anime-background .cloud:nth-child(2){width:400px;height:150px;background:#e8b4c8;top:55%;left:-15%;animation-duration:70s;animation-delay:-20s}
+#anime-background .cloud:nth-child(3){width:250px;height:100px;background:#b4a5d0;top:75%;left:-5%;animation-duration:65s;animation-delay:-40s}
+#anime-background .star-bright{width:3px;height:3px;background:#fff;box-shadow:0 0 6px #fff,0 0 12px oklch(0.929 0.013 255.508 / 0.4)}
+#anime-background .shooting-star{position:absolute;width:3px;height:3px;background:#fff;border-radius:50%;opacity:0;animation:shoot 4s ease-in-out infinite;box-shadow:0 0 4px #fff,0 0 8px oklch(0.929 0.013 255.508 / 0.3)}
+#anime-background .shooting-star::after{content:'';position:absolute;top:50%;left:0;width:80px;height:1px;background:linear-gradient(to left,transparent,oklch(0.929 0.013 255.508 / 0.4));transform:translateY(-50%)}
+@keyframes twinkle{0%,100%{opacity:0}50%{opacity:0.8}}
+@keyframes cloudDrift{0%{transform:translateX(0)}100%{transform:translateX(110vw)}}
+@keyframes softGradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes shoot{0%{transform:translate(0,0) scale(1);opacity:0}2%{opacity:1}10%{transform:translate(250px,150px) scale(0.6);opacity:0.8}12%,100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){#anime-background{animation:none}#anime-background .star,#anime-background .star-bright{animation:none;opacity:0.5}#anime-background .cloud{animation:none;opacity:0.1}#anime-background .shooting-star{display:none}}
 </style>
 </head>
 <body>
+<div id="anime-background"></div>
 
 <!-- Landing -->
 <div id="landing">
-  <div class="landing-card">
-    <h1>ViewNoveen</h1>
-    <p class="tagline">Watch parties, together.</p>
-    <div class="landing-forms">
-      <div class="section">
-        <h3>Host a Room</h3>
-        <input type="text" id="hostName" placeholder="Your name" value="Host" maxlength="30">
-        <button class="btn" onclick="createRoom()">Create Room</button>
+  <div class="wrapper">
+    <div class="image-container">
+      <video id="landingBg" class="landing-graphic" autoplay muted loop playsinline poster="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=85">
+        <source src="https://assets.mixkit.co/videos/12819/12819-720.mp4" type="video/mp4">
+        <source src="https://assets.mixkit.co/videos/14205/14205-720.mp4" type="video/mp4">
+      </video>
+    </div>
+    <div class="hero-content">
+      <h1 class="hero-title">VIEWNOVEEN</h1>
+      <p class="hero-tagline">Watch parties, together. In perfect sync.</p>
+    </div>
+    <div class="hero-forms">
+      <div class="hero-inline-inputs">
+        <div class="hero-input-block">
+          <span class="hero-input-block-label">Host</span>
+          <input type="text" id="hostName" value="Host" maxlength="30">
+        </div>
+        <div class="hero-input-block">
+          <span class="hero-input-block-label">Name</span>
+          <input type="text" id="joinName" maxlength="30">
+        </div>
+        <div class="hero-input-block hero-input-block--code">
+          <span class="hero-input-block-label">Code</span>
+          <input type="text" id="roomCode" placeholder="xxx" maxlength="8" style="text-transform:uppercase;letter-spacing:2px;direction:ltr;text-align:center">
+        </div>
       </div>
-      <div class="section">
-        <h3>Join a Room</h3>
-        <input type="text" id="joinName" placeholder="Your name" maxlength="30">
-        <input type="text" id="roomCode" placeholder="Room code" maxlength="8" style="text-transform:uppercase;letter-spacing:2px">
-        <button class="btn" onclick="joinRoom()">Join Room</button>
+      <div class="hero-btn-row">
+        <button id="createBtn" class="btn btn-glass" onclick="createRoom()">Create Room</button>
+        <button id="joinBtn" class="btn btn-glass" onclick="joinRoom()">Join Room</button>
       </div>
     </div>
   </div>
+  <section class="landing-features">
+    <h2>Why ViewNoveen?</h2>
+    <div class="features-grid">
+      <div class="feature-item">
+        <span class="icon">&#x1f91d;</span>
+        <h3>Perfect Sync</h3>
+        <p>Low-latency sync keeps everyone at the exact same frame.</p>
+      </div>
+      <div class="feature-item">
+        <span class="icon">&#x1f4fa;</span>
+        <h3>Any Source</h3>
+        <p>YouTube, Drive, direct URLs, local files, torrents — play anything.</p>
+      </div>
+      <div class="feature-item">
+        <span class="icon">&#x1f4ac;</span>
+        <h3>Live Chat</h3>
+        <p>Built-in real-time chat to react together, frame by frame.</p>
+      </div>
+      <div class="feature-item">
+        <span class="icon">&#x26F6;</span>
+        <h3>Fullscreen</h3>
+        <p>Immersive fullscreen with overlay chat and multi-format subtitles.</p>
+      </div>
+    </div>
+  </section>
 </div>
 
 <!-- Room -->
 <div id="room" class="hidden">
+  <div id="room-bg"><video id="roomBg" autoplay muted loop playsinline><source src="https://assets.mixkit.co/videos/14205/14205-720.mp4" type="video/mp4"></video></div>
   <div class="room-header">
     <div class="info">
       <span class="code" id="codeDisplay" onclick="copyCode()" title="Click to copy room code">------</span>
       <span class="badge"><span class="dot"></span> <span id="viewerCount">0</span> watching</span>
     </div>
     <div class="actions">
-      <button class="btn" style="width:auto;padding:6px 14px;font-size:13px" onclick="copyCode()">Copy Link</button>
-      <button class="btn btn-danger" style="width:auto;padding:6px 14px;font-size:13px" onclick="leaveRoom()">Leave</button>
+      <button class="btn btn-glass" onclick="copyCode()">Copy Link</button>
+      <button class="btn btn-glass btn-glass-danger" onclick="leaveRoom()">Leave</button>
     </div>
   </div>
   <div class="room-content">
     <div class="video-section" id="videoSection">
       <!-- Source Selector (host only) -->
-      <div id="uploadArea" class="hidden" style="text-align:center;padding:20px">
-        <div id="sourceSelector" style="display:flex;gap:8px;justify-content:center;margin-bottom:16px">
-          <button class="btn source-btn active" data-source="upload" style="width:auto;padding:8px 20px" onclick="selectSource('upload')">Upload</button>
-          <button class="btn source-btn" data-source="youtube" style="width:auto;padding:8px 20px" onclick="selectSource('youtube')">YouTube</button>
-          <button class="btn source-btn" data-source="drive" style="width:auto;padding:8px 20px" onclick="selectSource('drive')">Drive</button>
-          <button class="btn source-btn" data-source="direct" style="width:auto;padding:8px 20px" onclick="selectSource('direct')">Direct</button>
-          <button class="btn source-btn" data-source="localstream" style="width:auto;padding:8px 20px" onclick="selectSource('localstream')">Local Stream</button>
+      <div id="uploadArea" class="hidden" style="text-align:center;padding:20px;width:100%;max-width:600px;margin:0 auto">
+        <div id="sourceSelector" style="display:flex;gap:6px;justify-content:center;margin-bottom:20px;flex-wrap:wrap">
+          <button class="btn btn-glass source-btn active" data-source="upload" style="padding:7px 14px;font-size:12px" onclick="selectSource('upload')">Upload</button>
+          <button class="btn btn-glass source-btn" data-source="youtube" style="padding:7px 14px;font-size:12px" onclick="selectSource('youtube')">YouTube</button>
+          <button class="btn btn-glass source-btn" data-source="drive" style="padding:7px 14px;font-size:12px" onclick="selectSource('drive')">Drive</button>
+          <button class="btn btn-glass source-btn" data-source="direct" style="padding:7px 14px;font-size:12px" onclick="selectSource('direct')">Direct</button>
+          <button class="btn btn-glass source-btn" data-source="localstream" style="padding:7px 14px;font-size:12px" onclick="selectSource('localstream')">Local Stream</button>
         </div>
 
         <!-- Upload -->
@@ -424,65 +441,54 @@ input,button{font-family:inherit;font-size:14px}
           <div class="box">
             <div class="icon">&#x1f3ac;</div>
             <p><strong>Click to upload a video</strong></p>
-            <p id="uploadStatus">MP4, MKV, WebM, MOV</p>
+            <p id="uploadStatus" style="font-size:12px;color:oklch(0.7 0.04 256.788 / 0.4)">MP4, MKV, WebM, MOV</p>
           </div>
           <input type="file" id="fileInput" accept="video/mp4,video/webm,video/x-matroska,video/quicktime,video/*">
         </div>
 
         <!-- YouTube -->
-        <div id="youtubeSection" class="hidden" style="padding:16px 0">
-          <p style="margin-bottom:12px;color:var(--text2)">Paste a YouTube video URL or ID</p>
-          <div style="display:flex;gap:8px;max-width:500px;margin:0 auto">
-            <input type="text" id="youtubeInput" placeholder="https://youtube.com/watch?v=... or video ID" style="flex:1">
-            <button class="btn" style="width:auto;padding:10px 20px" onclick="loadYouTube()">Load</button>
+        <div id="youtubeSection" class="hidden" style="padding:8px 0">
+          <div style="display:flex;flex-direction:column;gap:10px;max-width:420px;margin:0 auto">
+            <span class="hero-input-block-label" style="font-size:9px">YouTube URL or ID</span>
+            <input type="text" id="youtubeInput" class="room-input-line" placeholder="https://youtube.com/watch?v=...">
+            <button class="btn btn-glass" onclick="loadYouTube()" style="margin-top:4px">Load</button>
           </div>
         </div>
 
         <!-- Google Drive -->
-        <div id="driveSection" class="hidden" style="padding:16px 0">
-          <p style="margin-bottom:12px;color:var(--text2)">Paste a Google Drive video share link</p>
-          <div style="display:flex;gap:8px;max-width:500px;margin:0 auto">
-            <input type="text" id="driveInput" placeholder="https://drive.google.com/file/d/.../view" style="flex:1">
-            <button class="btn" style="width:auto;padding:10px 20px" onclick="loadDrive()">Load</button>
+        <div id="driveSection" class="hidden" style="padding:8px 0">
+          <div style="display:flex;flex-direction:column;gap:10px;max-width:420px;margin:0 auto">
+            <span class="hero-input-block-label" style="font-size:9px">Google Drive share link</span>
+            <input type="text" id="driveInput" class="room-input-line" placeholder="https://drive.google.com/file/d/.../view">
+            <button class="btn btn-glass" onclick="loadDrive()" style="margin-top:4px">Load</button>
           </div>
         </div>
 
         <!-- Direct URL -->
-        <div id="directSection" class="hidden" style="padding:16px 0">
-          <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
-            <button class="btn source-btn" style="width:auto;padding:6px 14px;font-size:13px" onclick="directBack()">&larr; Back</button>
-            <span style="color:var(--text2)">Paste a direct video stream URL</span>
+        <div id="directSection" class="hidden" style="padding:8px 0">
+          <div style="display:flex;flex-direction:column;gap:10px;max-width:420px;margin:0 auto">
+            <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:2px">
+              <button class="btn btn-glass" style="padding:5px 10px;font-size:11px" onclick="directBack()">&larr; Back</button>
+              <span class="hero-input-block-label" style="font-size:9px">Direct video URL</span>
+            </div>
+            <input type="text" id="directInput" class="room-input-line" placeholder="https://example.com/video.mp4 or .m3u8">
+            <button class="btn btn-glass" onclick="loadDirect()" style="margin-top:4px">Load</button>
           </div>
-          <div style="display:flex;gap:8px;max-width:500px;margin:0 auto;margin-bottom:10px">
-            <input type="text" id="directInput" placeholder="https://example.com/video.mp4 or .m3u8" style="flex:1">
-            <button class="btn" style="width:auto;padding:10px 20px" onclick="loadDirect()">Load</button>
-          </div>
-          <!-- Stremio / local tunnel rewrite -->
-          <div id="stremioTunnelRow" style="display:flex;gap:8px;max-width:500px;margin:0 auto;align-items:center">
-            <span style="font-size:12px;color:var(--text2);white-space:nowrap;flex-shrink:0">Stremio tunnel:</span>
-            <input type="text" id="stremioTunnelInput"
-              placeholder="https://xxxx.trycloudflare.com (optional)"
-              style="flex:1;font-size:12px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);outline:none"
-              oninput="saveStremioTunnel()"
-            >
-            <button onclick="clearStremioTunnel()" style="background:none;border:1px solid var(--border);color:var(--text2);font-size:11px;padding:4px 8px;border-radius:var(--radius);cursor:pointer;white-space:nowrap;flex-shrink:0">Clear</button>
-          </div>
-          <p style="font-size:11px;color:var(--text3);max-width:500px;margin:6px auto 0">If you use Stremio, paste your Cloudflare tunnel URL here so remote viewers can reach your local stream. Saved automatically.</p>
         </div>
 
         <!-- Local Stream -->
-        <div id="localStreamSection" class="hidden" style="padding:16px 0">
-          <p style="margin-bottom:12px;color:var(--text2)">Select a video file from your device to stream (MP4, MKV, WebM, MOV - up to 5GB)</p>
-          <div style="display:flex;flex-direction:column;gap:8px;max-width:500px;margin:0 auto">
+        <div id="localStreamSection" class="hidden" style="padding:8px 0">
+          <div style="display:flex;flex-direction:column;gap:10px;max-width:420px;margin:0 auto">
+            <span class="hero-input-block-label" style="font-size:9px">Select a video file to stream</span>
             <input type="file" id="localStreamInput" accept="video/mp4,video/webm,video/x-matroska,video/quicktime,video/*" style="display:none">
-            <button class="btn" style="width:auto;padding:10px 20px" onclick="document.getElementById('localStreamInput').click()">Choose File</button>
-            <div id="localStreamProgress" class="hidden" style="padding:12px;background:var(--surface2);border-radius:var(--radius);text-align:center">
-              <div style="font-size:14px;font-weight:600" id="localStreamProgressText">Uploading... 0%</div>
-              <div style="margin-top:8px;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
-                <div id="localStreamProgressBar" style="height:100%;width:0%;background:var(--primary);border-radius:3px;transition:width .3s"></div>
+            <button class="btn btn-glass" onclick="document.getElementById('localStreamInput').click()">Choose File</button>
+            <div id="localStreamFileName" style="font-size:12px;color:oklch(0.7 0.04 256.788 / 0.4);text-align:center"></div>
+            <div id="localStreamProgress" class="hidden" style="padding:10px;background:oklch(0.06 0.04 265 / 0.2);border-radius:var(--radius);text-align:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid oklch(1 0 0 / 0.06)">
+              <div style="font-size:13px;font-weight:600;color:oklch(0.9 0.02 260 / 0.8)" id="localStreamProgressText">Uploading... 0%</div>
+              <div style="margin-top:8px;height:4px;background:oklch(1 0 0 / 0.08);border-radius:2px;overflow:hidden">
+                <div id="localStreamProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,oklch(0.7 0.15 300),oklch(0.6 0.12 240));border-radius:2px;transition:width .3s"></div>
               </div>
             </div>
-            <div id="localStreamFileName" style="font-size:13px;color:var(--text2);text-align:center"></div>
           </div>
         </div>
       </div>
@@ -490,54 +496,51 @@ input,button{font-family:inherit;font-size:14px}
       <div id="playerArea" class="hidden" style="width:100%;height:100%;position:relative">
         <video id="video" playsinline></video>
         <iframe id="directIframe" class="hidden" style="width:100%;height:100%;border:none;position:absolute;inset:0" allow="autoplay; fullscreen" allowfullscreen></iframe>
-        <div id="directClickBlocker" class="hidden" style="position:absolute;inset:0;z-index:3;background:transparent;cursor:default;pointer-events:none"></div>
         <div id="youtubePlayer" class="hidden" style="width:100%;height:100%;position:absolute;inset:0"></div>
-        <div id="ytClickBlocker" class="hidden" style="position:absolute;inset:0;z-index:3;background:transparent;cursor:default"></div>
-        <div id="fsOverlay" style="display:none;position:absolute;inset:0;z-index:20;background:transparent;cursor:none"></div>
         <!-- Controls -->
         <div class="controls" id="controls">
-          <button id="playBtn" onclick="togglePlay()">&#9654;</button>
-          <button class="seek-btn" onclick="seekRelative(-5)" title="Back 5s">-5</button>
-          <button class="seek-btn" onclick="seekRelative(5)" title="Forward 5s">+5</button>
-          <input type="range" id="seekbar" min="0" max="1000" value="0" oninput="onSeek()">
+          <button class="host-only btn-glass" id="playBtn" onclick="togglePlay()" style="padding:0;min-width:38px;height:38px;border-radius:50%!important;font-size:18px">&#9654;</button>
+          <button class="seek-btn host-only btn-glass" onclick="seekRelative(-5)" title="Back 5s" style="padding:0;min-width:32px;height:32px;border-radius:50%!important;font-size:12px">-5</button>
+          <button class="seek-btn host-only btn-glass" onclick="seekRelative(5)" title="Forward 5s" style="padding:0;min-width:32px;height:32px;border-radius:50%!important;font-size:12px">+5</button>
+          <input class="host-only" type="range" id="seekbar" min="0" max="1000" value="0" oninput="onSeek()">
           <span class="time" id="timeDisplay">0:00 / 0:00</span>
           <span class="live-badge" id="liveBadge"><span class="dot"></span> LIVE</span>
-          <button id="changeBtn" class="hidden" onclick="changeVideo()" title="Change Video" style="font-size:18px">&#x21bb;</button>
-          <button id="fsBtn" onclick="toggleFullscreen()" title="Fullscreen" style="font-size:18px">&#x26F6;</button>
-          <button id="chatFsBtn" class="hidden" onclick="toggleFsChat()" title="Chat" style="font-size:18px">&#x1f4ac;</button>
-          <span class="sub-controls" id="subControls">
-            <button id="subUploadBtn" class="hidden" onclick="document.getElementById('subInput').click()" title="Upload subtitles (.srt .vtt)">CC</button>
-            <button id="subSearchBtn" class="hidden" onclick="toggleSubSearch()" title="Search Subtitles">S</button>
+          <button class="host-only hidden btn-glass" id="changeBtn" onclick="changeVideo()" title="Change Video" style="padding:0;min-width:38px;height:38px;border-radius:50%!important;font-size:18px">&#x21bb;</button>
+          <button id="fsBtn" class="btn-glass" onclick="toggleFullscreen()" title="Fullscreen" style="padding:0;min-width:38px;height:38px;border-radius:50%!important;font-size:18px">&#x26F6;</button>
+          <button id="chatFsBtn" class="hidden btn-glass" onclick="toggleFsChat()" title="Chat" style="padding:0;min-width:38px;height:38px;border-radius:50%!important;font-size:18px">&#x1f4ac;</button>
+          <span class="host-only sub-controls" id="subControls">
+            <button id="subUploadBtn" class="hidden btn-glass" onclick="document.getElementById('subInput').click()" title="Upload subtitles (.srt .vtt)" style="padding:0 8px;height:30px;border-radius:6px!important;font-size:11px">CC</button>
+            <button id="subSearchBtn" class="hidden btn-glass" onclick="toggleSubSearch()" title="Search Subtitles" style="padding:0 8px;height:30px;border-radius:6px!important;font-size:11px">S</button>
             <span class="sub-file hidden" id="subFileName"></span>
-            <button id="subDelayDown" class="hidden" onclick="adjustSubDelay(-500)" title="Delay subtitles by -500ms">&#x2212;500</button>
+            <button id="subDelayDown" class="hidden btn-glass" onclick="adjustSubDelay(-500)" title="Delay subtitles by -500ms" style="padding:0 6px;height:30px;border-radius:6px!important;font-size:11px">&#x2212;500</button>
             <span class="sub-delay hidden" id="subDelayDisplay">0</span>
-            <button id="subDelayUp" class="hidden" onclick="adjustSubDelay(500)" title="Delay subtitles by +500ms">+500</button>
+            <button id="subDelayUp" class="hidden btn-glass" onclick="adjustSubDelay(500)" title="Delay subtitles by +500ms" style="padding:0 6px;height:30px;border-radius:6px!important;font-size:11px">+500</button>
           </span>
         </div>
         <input type="file" id="subInput" accept=".srt,.vtt" class="hidden">
         <!-- Fullscreen chat overlay -->
-        <div id="fsChatPanel" style="position:absolute;right:0;top:0;bottom:0;width:320px;z-index:26;background:var(--surface);border-left:1px solid var(--border);flex-direction:column">
-          <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-            <h3 style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text2)">Chat</h3>
-            <button onclick="toggleFsChat()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center">&#x2715;</button>
+        <div id="fsChatPanel" style="position:absolute;left:0;top:0;bottom:0;width:320px;z-index:15;flex-direction:column">
+          <div style="padding:12px 16px;border-bottom:1px solid oklch(0.929 0.013 255.508 / 0.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <h3 style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:oklch(0.8 0.04 256.788 / 0.7)">Chat</h3>
+            <button class="btn-glass" onclick="toggleFsChat()" style="padding:0;width:28px;height:28px;border-radius:6px!important;font-size:18px">&#x2715;</button>
           </div>
           <div id="fsChatMessages" style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;min-height:0"></div>
-          <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0">
-            <input type="text" id="fsChatInput" placeholder="Type a message..." maxlength="500" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);outline:none;min-width:0">
-            <button onclick="sendFsChat()" style="padding:8px 16px;border:none;border-radius:var(--radius);background:var(--primary);color:#fff;font-weight:600;cursor:pointer;flex-shrink:0">Send</button>
+          <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid oklch(0.929 0.013 255.508 / 0.06);flex-shrink:0">
+            <input type="text" id="fsChatInput" placeholder="Type a message..." maxlength="500" style="flex:1;padding:8px 12px;border:1px solid oklch(1 0 0 / 0.1);border-radius:var(--radius);background:oklch(0.12 0.04 265 / 0.4);color:oklch(0.9 0.02 260);outline:none;min-width:0;font-family:system-ui,-apple-system,sans-serif">
+            <button class="btn-glass" onclick="sendFsChat()">Send</button>
           </div>
         </div>
         <!-- Subtitle search dialog -->
         <div id="subSearchDialog" class="hidden" style="position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)">
-          <div style="background:var(--surface);border-radius:var(--radius);width:min(500px,92vw);max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5)">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
-              <h3 style="font-size:15px;font-weight:700;letter-spacing:.3px">Search Subtitles</h3>
-              <button onclick="toggleSubSearch()" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center">&times;</button>
+          <div style="background:oklch(0.1 0.04 265 / 0.85);border-radius:var(--radius);width:min(500px,92vw);max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid oklch(0.929 0.013 255.508 / 0.08)">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid oklch(0.929 0.013 255.508 / 0.06);flex-shrink:0">
+              <h3 style="font-size:15px;font-weight:700;letter-spacing:.3px;background:linear-gradient(135deg,#c084fc,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Search Subtitles</h3>
+              <button class="btn-glass" onclick="toggleSubSearch()" style="padding:0;width:30px;height:30px;border-radius:6px!important;font-size:20px">&times;</button>
             </div>
             <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;flex-shrink:0">
-              <input type="text" id="subSearchQuery" placeholder="Movie title (e.g. The Matrix)" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);outline:none;font-size:14px">
+              <input type="text" id="subSearchQuery" placeholder="Movie title (e.g. The Matrix)" style="width:100%;padding:10px 14px;border:1px solid oklch(1 0 0 / 0.1);border-radius:var(--radius);background:oklch(0.12 0.04 265 / 0.4);color:oklch(0.9 0.02 260);outline:none;font-size:14px">
               <div style="display:flex;gap:10px;align-items:center">
-                <select id="subSearchLang" style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);outline:none;font-size:14px">
+                <select id="subSearchLang" style="flex:1;padding:10px 14px;border:1px solid oklch(1 0 0 / 0.1);border-radius:var(--radius);background:oklch(0.12 0.04 265 / 0.4);color:oklch(0.9 0.02 260);outline:none;font-size:14px">
                   <option value="en">English</option>
                   <option value="es">Spanish</option>
                   <option value="fr">French</option>
@@ -551,15 +554,15 @@ input,button{font-family:inherit;font-size:14px}
                   <option value="hi">Hindi</option>
                   <option value="">All Languages</option>
                 </select>
-                <button onclick="searchSubtitles()" style="padding:10px 24px;border:none;border-radius:var(--radius);background:var(--primary);color:#fff;font-weight:600;cursor:pointer;font-size:14px;flex-shrink:0">Search</button>
+                <button class="btn-glass" onclick="searchSubtitles()">Search</button>
               </div>
-              <div id="subSearchKeyWrap" style="display:flex;gap:8px;align-items:center;font-size:12px;color:var(--text2)">
+              <div id="subSearchKeyWrap" style="display:flex;gap:8px;align-items:center;font-size:12px;color:oklch(0.7 0.04 256.788 / 0.5)">
                 <span>API Key:</span>
-                <input type="password" id="subSearchKey" placeholder="opensubtitles.com API key" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);outline:none;font-size:12px">
-                <a href="https://www.opensubtitles.com/en/consumers" target="_blank" style="color:var(--primary);text-decoration:none;white-space:nowrap">Get one</a>
+                <input type="password" id="subSearchKey" placeholder="opensubtitles.com API key" style="flex:1;padding:6px 10px;border:1px solid oklch(1 0 0 / 0.1);border-radius:var(--radius);background:oklch(0.12 0.04 265 / 0.4);color:oklch(0.9 0.02 260);outline:none;font-size:12px">
+                <a href="https://www.opensubtitles.com/en/consumers" target="_blank" style="color:#60a5fa;text-decoration:none;white-space:nowrap">Get one</a>
               </div>
             </div>
-            <div id="subSearchStatus" style="padding:10px 20px;font-size:13px;color:var(--text2);text-align:center;display:none"></div>
+            <div id="subSearchStatus" style="padding:10px 20px;font-size:13px;color:oklch(0.7 0.04 256.788 / 0.5);text-align:center;display:none"></div>
             <div id="subSearchResults" style="flex:1;overflow-y:auto;padding:0 20px 20px;display:flex;flex-direction:column;gap:6px;min-height:0"></div>
           </div>
         </div>
@@ -569,23 +572,17 @@ input,button{font-family:inherit;font-size:14px}
         <div class="icon">&#x23f3;</div>
         <p id="waitMsg">Waiting for host to share a video...</p>
       </div>
-      <div id="resumeOverlay" class="hidden" style="display:none!important"></div>
-      <div id="errorOverlay" class="hidden" style="position:absolute;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);flex-direction:column;gap:16px;padding:32px;text-align:center">
-        <div style="font-size:40px">&#x26a0;</div>
-        <div id="errorMsg" style="color:#fff;font-size:15px;font-weight:500;line-height:1.5;max-width:400px">Playback error</div>
-        <span style="font-size:12px;color:rgba(255,255,255,0.5)">Waiting for host to select a new source...</span>
-      </div>
     </div>
     <!-- Chat -->
     <div class="chat-section" id="chatSection">
       <div class="chat-header">
         <h3>Chat</h3>
-        <button onclick="toggleChat()" id="chatToggleBtn">&#x2715;</button>
+        <button class="btn-glass" onclick="toggleChat()" id="chatToggleBtn" style="padding:0;width:28px;height:28px;border-radius:6px!important;font-size:18px">&#x2715;</button>
       </div>
       <div class="chat-msgs" id="chatMessages"></div>
       <div class="chat-input">
         <input type="text" id="chatInput" placeholder="Type a message..." maxlength="500">
-        <button onclick="sendChat()">Send</button>
+        <button class="btn-glass" onclick="sendChat()">Send</button>
       </div>
     </div>
   </div>
@@ -594,8 +591,8 @@ input,button{font-family:inherit;font-size:14px}
 <!-- Toast -->
 <div id="toast"></div>
 
-<!-- Reconnecting bar (hidden by default, viewer never sees it) -->
-<div id="reconnectBar" class="hidden" style="display:none!important"></div>
+<!-- Reconnecting bar -->
+<div id="reconnectBar" class="hidden" style="position:fixed;top:0;left:0;right:0;z-index:10000;background:oklch(0.7 0.15 300 / 0.85);color:#fff;text-align:center;padding:3px 12px;font-size:12px;font-weight:500;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)">Reconnecting...</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js">
@@ -603,6 +600,10 @@ input,button{font-family:inherit;font-size:14px}
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js">
 </script>
 <script src="https://cdn.jsdelivr.net/npm/dashjs@latest/dist/dash.all.min.js">
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" crossorigin="anonymous">
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" crossorigin="anonymous">
 </script>
 <script>
 // ==================== STATE ====================
@@ -614,7 +615,7 @@ const socket = io({
 });
 let connected = false;
 let roomCode = null;
-let isHost = false; window.isHost = false;
+let isHost = false;
 let myName = "Anonymous";
 let videoMeta = null;
 let totalChunks = 0;
@@ -630,22 +631,6 @@ let localSeek = false;
 let ignoreNext = false;
 let receiving = false;
 let syncTimer = null;
-let _syncWatchdogTimer = null;
-let _estRTT = 150; // ms, conservative default until first measurement
-let _rttSamples = [];
-function recordRTT(ms) {
-  if (ms < 0 || ms > 5000) return;
-  _rttSamples.push(ms);
-  if (_rttSamples.length > 8) _rttSamples.shift();
-  var sorted = [..._rttSamples].sort(function(a,b) { return a-b; });
-  _estRTT = sorted[Math.floor(sorted.length / 2)];
-}
-function measureRTT() {
-  var start = Date.now();
-  socket.emit("ping-rtt", start, function() {
-    recordRTT(Date.now() - start);
-  });
-}
 let playerType = null;
 let ytPlayer = null;
 let ytApiReady = false;
@@ -659,28 +644,39 @@ let ytLoadTimer = null;
 let intentionalLeave = false;
 let _lastSrcSetAt = 0;
 let directPlaying = false;
+let directTime = 0;
 let _inFullscreenTransition = false;
+let _fsControlsTimer = null;
 let _lastSyncTargetT = -1;
 let _lastSyncTime = 0;
-let _lastAppliedSeq = -1;
-let _pendingHostPlay = false;
-let _suppressYTPlay = false;
-let _ytReclaimMode = false;
 let subtitleCues = [];
 let subtitleDelay = 0;
-let _subtitleBlobUrl = null;
-
-window.addEventListener('beforeunload', function() {
-  if (_subtitleBlobUrl) { URL.revokeObjectURL(_subtitleBlobUrl); _subtitleBlobUrl = null; }
-  var track = document.getElementById('subtitleTrack');
-  if (track) { try { track.track.mode = 'disabled'; } catch(e) {} track.remove(); }
-});
+let _rttSamples = [];
+let _estRTT = 0;
+let _minRTT = Infinity;
+let _speedSyncActive = false;
+let _speedSyncTimeout = null;
+let _serverClockOffset = 0;
+let _clockOffsetSamples = [];
+let _playEmitLast = 0;
+let _pauseEmitLast = 0;
+let _systemPause = false;
+let _syncWatchdogArmed = false;
+let _syncWatchdogTimer = null;
+let _pendingHostPlay = false;
+let _lastAppliedSeq = -1;
+let _pendingChatMsgs = [];
+let _chatScheduled = false;
+let _scrollScheduled = false;
 
 // Buffer manager for Local Stream
 const bufMgr = {
   startupMinBuf: 10,
   criticalLow: 2,
   safeResume: 5,
+  directStartupMinBuf: 5,
+  directCriticalLow: 2,
+  directSafeResume: 8,
   consecutiveStalls: 0,
   lastStallTime: 0,
   stallCooldown: 30000,
@@ -689,20 +685,63 @@ const bufMgr = {
   _stallTimer: null,
 };
 
+function recordRTT(ms) {
+  if (ms < 0 || ms > 5000) return;
+  if (ms < _minRTT) _minRTT = ms;
+  _rttSamples.push(ms);
+  if (_rttSamples.length > 20) _rttSamples.shift();
+  var sorted = _rttSamples.slice().sort(function(a,b){return a-b;});
+  _estRTT = sorted[Math.floor(sorted.length/2)] || 0;
+}
+
+function applySpeedToSync(driftSeconds) {
+  if (_speedSyncActive) return;
+  var rate = driftSeconds > 0 ? 1.08 : 0.92;
+  video.playbackRate = rate;
+  _speedSyncActive = true;
+  clearTimeout(_speedSyncTimeout);
+  _speedSyncTimeout = setTimeout(function() {
+    video.playbackRate = 1.0;
+    _speedSyncActive = false;
+  }, 1000);
+}
+
+function updateClockOffset(savedAt) {
+  if (!savedAt) return;
+  var now = Date.now();
+  var oneWay = Math.min(_minRTT === Infinity ? 50 : _minRTT / 2, (_estRTT || 100) / 2);
+  var sample = savedAt + oneWay - now;
+  if (Math.abs(sample) > 5) {
+    _clockOffsetSamples.push(sample);
+    if (_clockOffsetSamples.length > 15) _clockOffsetSamples.shift();
+    var sorted = _clockOffsetSamples.slice().sort(function(a,b){return a-b;});
+    _serverClockOffset = sorted[Math.floor(sorted.length/2)] || 0;
+  }
+}
+
+function _compensateViewerTime(t, savedAt, noComp) {
+  if (!savedAt) return t;
+  var elapsed = Date.now() - savedAt;
+  var rtt = Math.min(_estRTT || 100, 1000);
+  var oneWay = Math.min(_minRTT === Infinity ? 50 : _minRTT / 2, rtt / 2);
+  var clockComp = _serverClockOffset || 0;
+  if (noComp) return t + clockComp;
+  return t + (elapsed + oneWay + clockComp) / 1000;
+}
+
 // ==================== DOM ====================
 const $ = (id) => document.getElementById(id);
 const video = $("video");
 // Unmute on user interaction (recovery from muted autoplay)
 (function() {
-  function _ensureAudio() { if (video.muted) video.muted = false; }
+  function _ensureAudio() { if (playerType && playerType !== "youtube" && video.muted) video.muted = false; }
   document.addEventListener('click', _ensureAudio);
   document.addEventListener('touchstart', _ensureAudio);
   document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible') _ensureAudio();
   });
 })();
-// Wrap play() to retry with muted on autoplay rejection, but respect _suppressAutoMute flag
-var _suppressAutoMute = false;
+// Wrap play() to retry with muted on autoplay rejection
 (function() {
   var _origPlay = video.play.bind(video);
   video.play = function() {
@@ -710,11 +749,8 @@ var _suppressAutoMute = false;
     if (p && typeof p.catch === 'function') {
       return p.catch(function(e) {
         if (e && e.name === 'NotAllowedError') {
-          if (_suppressAutoMute) throw e;
           video.muted = true;
-          return _origPlay().then(function() {
-            if (video.muted) video.muted = false;
-          });
+          return _origPlay();
         }
         throw e;
       });
@@ -726,10 +762,44 @@ const seekbar = $("seekbar");
 const timeDisplay = $("timeDisplay");
 const playBtn = $("playBtn");
 const liveBadge = $("liveBadge");
-const createBtn = $("createBtn") || document.querySelector(".landing-forms .section:first-child .btn");
-const joinBtn = $("joinBtn") || document.querySelector(".landing-forms .section:last-child .btn");
+const createBtn = $("createBtn");
+const joinBtn = $("joinBtn");
 
-// Video events (diagnostic logging removed)
+// Video debug logging
+["loadstart","loadedmetadata","loadeddata","canplay","canplaythrough","play","playing","pause","waiting","stalled","suspend","abort","emptied","seeked","seeking","durationchange","progress","ratechange"].forEach(function(e) {
+  video.addEventListener(e, function() { console.log("[video] " + e + (e==="loadedmetadata"?" d:"+video.duration+" "+video.videoWidth+"x"+video.videoHeight:"")); });
+});
+video.addEventListener("error", function() {
+  var err = video.error;
+  console.log("[video] error:", err ? err.code + " - " + err.message : "unknown");
+});
+
+let _directStallTimer = null;
+video.addEventListener("waiting", function() {
+  if (playerType !== "direct") return;
+  if (_directStallTimer) clearTimeout(_directStallTimer);
+  if ($("waitOverlay").classList.contains("hidden") && !bufMgr.isRebuffering && !bufMgr.isStartupBuffering) {
+    $("waitOverlay").classList.remove("hidden");
+    $("waitMsg").textContent = "Buffering...";
+  }
+  var stalledCt = video.currentTime;
+  _directStallTimer = setTimeout(function() {
+    if (playerType !== "direct") return;
+    if (video.paused || video.ended) return;
+    if (Math.abs(video.currentTime - stalledCt) < 0.5) {
+      video.play().catch(function() {});
+    }
+  }, 5000);
+});
+video.addEventListener("playing", function() {
+  if (_directStallTimer) { clearTimeout(_directStallTimer); _directStallTimer = null; }
+  if (playerType === "direct" && !$("waitOverlay").classList.contains("hidden") && !bufMgr.isStartupBuffering && !bufMgr.isRebuffering) {
+    $("waitOverlay").classList.add("hidden");
+  }
+});
+video.addEventListener("seeked", function() {
+  if (_directStallTimer) { clearTimeout(_directStallTimer); _directStallTimer = null; }
+});
 
 // ==================== DIAGNOSTIC INSTRUMENTATION ====================
 // Logs video state + events to diagnose F5 reconnection choppiness.
@@ -787,7 +857,7 @@ const joinBtn = $("joinBtn") || document.querySelector(".landing-forms .section:
     _lastSnap = s;
     if (e === "waiting") { window._diagWaitingCount = (window._diagWaitingCount||0) + 1; }
     if (e === "stalled") { window._diagStalledCount = (window._diagStalledCount||0) + 1; }
-    // diagnostic logging removed
+    console.log("[DIAG-" + _diagTag + "] " + e + extra + " " + snapLine(s));
   }
   // Monitored events (throttled: timeupdate at most every 2s, rest always logged)
   ["seeked","seeking","waiting","stalled","play","playing","pause","canplay","loadedmetadata","emptied","suspend","loadstart"].forEach(function(ev) {
@@ -800,7 +870,8 @@ const joinBtn = $("joinBtn") || document.querySelector(".landing-forms .section:
   video.addEventListener("volumechange", function() {
     var pre = _lastSnap;
     var post = _pipelineSnap();
-    // volume diagnostic logging removed
+    console.log("[DIAG-" + _diagTag + "-VOLUME] PRE:  " + (pre ? snapLine(pre) : "no-prev"));
+    console.log("[DIAG-" + _diagTag + "-VOLUME] POST: " + snapLine(post));
     _lastSnap = post;
   });
   // Periodic full-state snapshot every 1 second
@@ -818,32 +889,13 @@ const joinBtn = $("joinBtn") || document.querySelector(".landing-forms .section:
     } else if (window.hlsInstance && typeof window.hlsInstance.bufferLength === 'number') {
       hlsDetail = " hlsBufLen=" + window.hlsInstance.bufferLength.toFixed(1);
     }
-    // periodic diagnostic logging removed
+    console.log("[DIAG-" + _diagTag + "-PERIODIC] " + snapLine(s) + hlsDetail + " w=" + (window._diagWaitingCount||0) + " s=" + (window._diagStalledCount||0));
   }, 1000);
-  // Gentle stall recovery for Direct sources (no full source reload)
-  let _directStallTimer = null;
-  video.addEventListener("waiting", function() {
-    if (playerType !== "direct") return;
-    if (_directStallTimer) clearTimeout(_directStallTimer);
-    var stalledCt = video.currentTime;
-    _directStallTimer = setTimeout(function() {
-      if (playerType !== "direct") return;
-      if (video.paused || video.ended) return;
-      if (Math.abs(video.currentTime - stalledCt) < 0.5) {
-        video.play().catch(function() {});
-      }
-    }, 10000);
-  });
-  video.addEventListener("playing", function() {
-    if (_directStallTimer) { clearTimeout(_directStallTimer); _directStallTimer = null; }
-  });
-  video.addEventListener("seeked", function() {
-    if (_directStallTimer) { clearTimeout(_directStallTimer); _directStallTimer = null; }
-  });
   // Key handler: press D to dump all events, V to dump video element keys
   document.addEventListener("keydown", function(evt) {
     if (evt.key === "d" || evt.key === "D") {
-      // dump diagnostic logging removed
+      console.log("[DIAG-" + _diagTag + "-DUMP] Full event log (" + _diagEvts.length + " events):");
+      _diagEvts.forEach(function(o) { console.log("  " + new Date(o.t).toISOString().slice(11,23) + " " + o.e + (o.extra?" "+o.extra:"") + " " + snapLine(o.s)); });
     }
     if (evt.key === "v" || evt.key === "V") {
       var v = video;
@@ -862,7 +914,7 @@ const joinBtn = $("joinBtn") || document.querySelector(".landing-forms .section:
         webkitVideoBytes: v.webkitVideoDecodedByteCount,
         src: (v.src || "").substring(0,80),
       };
-      // video-info diagnostic logging removed
+      console.log("[DIAG-" + _diagTag + "-VIDEO-INFO]", JSON.stringify(info, null, 2));
     }
   });
   // Expose helpers for instrumentation throughout code
@@ -886,7 +938,6 @@ joinBtn.disabled = true;
 joinBtn.textContent = "Connecting...";
 
 socket.on("connect", () => {
-  measureRTT();
   if (!connected) {
     createBtn.disabled = false;
     createBtn.textContent = "Create Room";
@@ -899,29 +950,76 @@ socket.on("connect", () => {
     if (isHost) reclaimHost();
     else rejoinRoom();
   }
+  clearInterval(window._rttTimer);
+  window._rttTimer = setInterval(function() {
+    var t0 = Date.now();
+    socket.emit("ping-rtt", t0, function(serverTime) {
+      var rtt = Date.now() - t0;
+      recordRTT(rtt);
+      if (serverTime) {
+        var oneWay = Math.min(_minRTT === Infinity ? 50 : _minRTT / 2, (_estRTT || 100) / 2);
+        var sample = serverTime + oneWay - Date.now();
+        if (Math.abs(sample) > 5) {
+          _clockOffsetSamples.push(sample);
+          if (_clockOffsetSamples.length > 15) _clockOffsetSamples.shift();
+          var sorted = _clockOffsetSamples.slice().sort(function(a,b){return a-b;});
+          _serverClockOffset = sorted[Math.floor(sorted.length/2)] || 0;
+        }
+      }
+    });
+  }, 10000);
 });
-setInterval(measureRTT, 10000);
 
 socket.on("disconnect", () => {
-  // Reconnection bar removed — it was intrusive
+  if (_speedSyncActive) {
+    clearTimeout(_speedSyncTimeout);
+    video.playbackRate = 1.0;
+    _speedSyncActive = false;
+  }
+  clearTimeout(_syncWatchdogTimer);
+  _syncWatchdogArmed = false;
+  if (roomCode && !intentionalLeave) {
+    $("reconnectBar").classList.remove("hidden");
+  }
 });
 
 socket.on("reconnect_attempt", (n) => {
-  // Reconnection bar removed
+  if (roomCode) {
+    $("reconnectBar").classList.remove("hidden");
+    $("reconnectBar").textContent = `Reconnecting (attempt ${n})...`;
+  }
 });
 
 socket.on("reconnect", () => {
-  // Reconnection bar removed
+  $("reconnectBar").classList.add("hidden");
 });
 
-// Socket event spy (diagnostic logging removed)
+// Socket event spy (log all incoming socket events)
+(function() {
+  var _installed = false;
+  function installSpy() {
+    if (_installed || !socket.onevent) return;
+    _installed = true;
+    var _orig = socket.onevent;
+    socket.onevent = function(pkt) {
+      var args = pkt.data || [];
+      if (args.length > 0 && args[0] !== "chat") {
+        console.log("[DIAG-SOCKET-" + window._diagTag + "] <-- " + args[0] + " " + JSON.stringify(args.slice(1)).substring(0,160));
+      }
+      _orig.call(this, pkt);
+    };
+  }
+  // Try now, and also on every connect
+  installSpy();
+  socket.on("connect", installSpy);
+})();
 
 // ==================== ROOMS ====================
 function createRoom() {
   myName = $("hostName").value.trim() || "Host";
   socket.emit("create", (res) => {
     roomCode = res.code;
-    isHost = true; window.isHost = true;
+    isHost = true;
     if (res.hostToken) {
       sessionStorage.setItem("viewnoveen_hostToken", res.hostToken);
       sessionStorage.setItem("viewnoveen_roomCode", res.code);
@@ -939,7 +1037,7 @@ function joinRoom() {
   socket.emit("join", { c: code, n: name }, (res) => {
     if (res.err) return toast(res.err);
     roomCode = code;
-    isHost = false; window.isHost = false;
+    isHost = false;
     sessionStorage.removeItem("viewnoveen_hostToken");
     sessionStorage.setItem("viewnoveen_roomCode", code);
     sessionStorage.setItem("viewnoveen_myName", name);
@@ -950,12 +1048,11 @@ function joinRoom() {
 
 function rejoinRoom() {
   if (!roomCode) return;
-  if (sessionStorage.getItem("viewnoveen_hostToken")) return;
   socket.emit("join", { c: roomCode, n: myName }, (res) => {
     if (res.err) {
       toast("Room no longer available.");
       roomCode = null;
-      isHost = false; window.isHost = false;
+      isHost = false;
       $("room").classList.add("hidden");
       $("landing").classList.remove("hidden");
       $("reconnectBar").classList.add("hidden");
@@ -963,28 +1060,6 @@ function rejoinRoom() {
       socket.emit("subtitle-check");
     }
   });
-}
-
-function resumeAudio() {
-  // Removed: no longer shows intrusive resume overlay
-}
-
-// resumeOverlay click handler removed — overlay no longer shown
-
-// ==================== ERROR / FALLBACK UI ====================
-function showError(msg) {
-  $("errorMsg").textContent = msg || "Playback error";
-  $("errorOverlay").classList.remove("hidden");
-  $("waitOverlay").classList.add("hidden");
-  liveBadge.classList.add("hidden");
-}
-
-function hideError() {
-  $("errorOverlay").classList.add("hidden");
-}
-
-function showResumeOverlay() {
-  // Removed: no longer shows intrusive "Tap to resume" overlay
 }
 
 function reclaimHost(hostToken) {
@@ -1000,41 +1075,28 @@ function reclaimHost(hostToken) {
       $("reconnectBar").classList.add("hidden");
       return;
     }
-    // reclaim diagnostic logging removed
     // Restore host UI and source
     if (res.meta && res.meta.source) {
       if (res.meta.source === "youtube") {
         playerType = "youtube";
         $("uploadArea").classList.add("hidden");
         $("playerArea").classList.remove("hidden");
-        // Keep waitOverlay visible until YT player is ready to avoid black screen
-        $("waitMsg").textContent = "Loading YouTube player...";
+        $("waitOverlay").classList.add("hidden");
         liveBadge.classList.remove("hidden");
-        $("changeBtn").classList.remove("hidden");
-      _ytReclaimMode = true;
-      if (ytApiReady) {
-        createYTPlayer(res.meta.videoId);
-      } else {
-        loadYouTubeAPI();
-        ytLoadTimer = setInterval(() => {
-          if (ytApiReady) { clearInterval(ytLoadTimer); ytLoadTimer = null; createYTPlayer(res.meta.videoId); }
-        }, 200);
-        setTimeout(() => {
-          if (ytLoadTimer) {
-            clearInterval(ytLoadTimer); ytLoadTimer = null;
-            $("waitOverlay").classList.add("hidden");
-            _ytReclaimMode = false;
-            toast("YouTube API failed to load. Check connection or ad blocker, then click Change Video.", 5000);
-          }
-        }, 15000);
-      }
+        if (ytApiReady) {
+          createYTPlayer(res.meta.videoId);
+        } else {
+          loadYouTubeAPI();
+          ytLoadTimer = setInterval(() => {
+            if (ytApiReady) { clearInterval(ytLoadTimer); ytLoadTimer = null; createYTPlayer(res.meta.videoId); }
+          }, 200);
+        }
       } else if (res.meta.source === "drive") {
         playerType = "drive";
-        $("uploadArea").classList.remove("hidden");
+        $("uploadArea").classList.add("hidden");
         $("playerArea").classList.remove("hidden");
         $("waitOverlay").classList.remove("hidden");
         liveBadge.classList.add("hidden");
-        $("changeBtn").classList.remove("hidden");
         video.src = res.meta.directUrl;
         video.load();
       } else if (res.meta.source === "direct") {
@@ -1045,21 +1107,12 @@ function reclaimHost(hostToken) {
         $("waitMsg").textContent = "Loading video...";
         liveBadge.classList.add("hidden");
         video.classList.remove("hidden");
-        $("changeBtn").classList.remove("hidden");
-        $("directSection").classList.remove("hidden");
         _lastSrcSetAt = Date.now();
-        var proxyUrl = (res.meta.url.startsWith("http://localhost:") || res.meta.url.startsWith("https://localhost:")) ? res.meta.url : "/proxy?url=" + encodeURIComponent(res.meta.url);
-        // Cache-bust: append t param to avoid Chromium cache stall after F5
-        if (proxyUrl.indexOf('?') > -1) proxyUrl += '&_t=' + Date.now();
-        else proxyUrl += '?_t=' + Date.now();
-        // reclaim-proxy diagnostic logging removed
+        var proxyUrl = "/proxy?url=" + encodeURIComponent(res.meta.url);
         if (res.meta.isHls && window.Hls && window.Hls.isSupported()) {
           if (window.hlsInstance) { window.hlsInstance.destroy(); }
           var h = new Hls();
           window.hlsInstance = h;
-          h.on(Hls.Events.ERROR, function(evt, data) {
-            if (data.fatal) { showError("Video stream failed to load (HLS error). The source may be unavailable or blocked."); }
-          });
           h.loadSource(proxyUrl);
           h.attachMedia(video);
         } else if (res.meta.isDash && window.dashjs && window.dashjs.MediaPlayer) {
@@ -1069,26 +1122,30 @@ function reclaimHost(hostToken) {
         } else {
           video.src = proxyUrl;
           video.load();
+          waitForStartupBuffer(function () {
+            $("waitOverlay").classList.add("hidden");
+            liveBadge.classList.remove("hidden");
+            startBufferMonitor();
+            if (_pendingHostPlay && video.paused) { _pendingHostPlay = false; video.play().catch(function() {}); }
+          });
         }
       } else if (res.meta.source === "torrent") {
         playerType = "torrent";
-        $("uploadArea").classList.remove("hidden");
+        $("uploadArea").classList.add("hidden");
         $("playerArea").classList.remove("hidden");
         $("waitOverlay").classList.remove("hidden");
         $("waitMsg").textContent = "Reconnecting to torrent...";
         video.classList.add("hidden");
         $("youtubePlayer").classList.add("hidden");
-        $("changeBtn").classList.remove("hidden");
         startTorrent(res.meta.torrentId);
       } else if (res.meta.source === "localstream") {
         playerType = "localstream";
-        $("uploadArea").classList.remove("hidden");
+        $("uploadArea").classList.add("hidden");
         $("playerArea").classList.remove("hidden");
         $("waitOverlay").classList.remove("hidden");
         $("waitMsg").textContent = "Buffering...";
         liveBadge.classList.add("hidden");
         video.classList.remove("hidden");
-        $("changeBtn").classList.remove("hidden");
         video.src = res.meta.url;
         video.load();
         waitForStartupBuffer(function () {
@@ -1100,13 +1157,12 @@ function reclaimHost(hostToken) {
         playerType = "proxy";
         proxyMode = true;
         proxyBuffer = null;
-        $("uploadArea").classList.remove("hidden");
+        $("uploadArea").classList.add("hidden");
         $("playerArea").classList.remove("hidden");
         $("waitOverlay").classList.remove("hidden");
         $("waitMsg").textContent = "Reconnecting to stream...";
         liveBadge.classList.add("hidden");
         video.classList.remove("hidden");
-        $("changeBtn").classList.remove("hidden");
         $("youtubePlayer").classList.add("hidden");
         $("waitOverlay").classList.remove("hidden");
         const mime = res.meta.type || "video/mp4";
@@ -1120,76 +1176,48 @@ function reclaimHost(hostToken) {
         }
       } else {
         playerType = "upload";
-        $("changeBtn").classList.remove("hidden");
         $("uploadArea").classList.remove("hidden");
         $("uploadStatus").textContent = "MP4, MKV, WebM, MOV";
       }
     } else {
-      $("changeBtn").classList.remove("hidden");
       $("uploadArea").classList.remove("hidden");
       $("uploadStatus").textContent = "MP4, MKV, WebM, MOV";
     }
-    $("changeBtn").classList.remove("hidden");
     // Restore room state
     if (res.state) {
-      if (res.state._seq !== undefined) _lastAppliedSeq = Math.max(-1, res.state._seq);
       ignoreNext = true;
       if (res.meta && res.meta.source === "youtube" && ytPlayer && ytPlayer.seekTo) {
         ytPlayer.seekTo(res.state.t, true);
         if (res.state.p) ytPlayer.playVideo();
         else ytPlayer.pauseVideo();
-      } else if (res.meta && res.meta.source === "youtube") {
-        pendingState = res.state;
       } else {
         if (res.state.p) {
           video.currentTime = res.state.t;
-          _pendingHostPlay = true;
-          if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-            _pendingHostPlay = false;
-            video.play().catch(function() {});
-          }
+          video.play().catch(() => {});
         } else {
           video.currentTime = res.state.t;
-          video.pause();
+          if (Date.now() - _lastSrcSetAt > 3000) video.pause();
         }
       }
       setTimeout(() => (ignoreNext = false), 1000);
     }
-      // PS2: Restore host identity
-      isHost = true;
-      window.isHost = true;
+    // PS2: Restore host identity
+    isHost = true;
     $("landing").classList.add("hidden");
     $("room").classList.remove("hidden");
     $("codeDisplay").textContent = roomCode;
     document.title = "ViewNoveen - " + roomCode;
-    $("controls").classList.remove("hidden");
-    $("controls").classList.add("show");
-    clearTimeout(window._ctrlShowTimer);
-    window._ctrlShowTimer = setTimeout(function() {
-      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-        $("controls").classList.remove("show");
-      }
-    }, 3000);
+    $("controls").classList.remove("hidden","viewer");
     $("subUploadBtn").classList.remove("hidden");
     $("subSearchBtn").classList.remove("hidden");
     startSyncTimer();
     loadSubtitle();
-    resumeAudio();
   };
   if (hostToken) {
     socket.emit("reclaim-host", roomCode, hostToken, cb);
   } else {
     socket.emit("reclaim-host", roomCode, cb);
   }
-}
-
-function applyViewerRestrictions() {
-  $("playBtn").classList.add("hidden");
-  document.querySelectorAll(".seek-btn").forEach(function(btn) { btn.classList.add("hidden"); });
-  $("changeBtn").classList.add("hidden");
-  $("subUploadBtn").classList.add("hidden");
-  $("subSearchBtn").classList.add("hidden");
-  seekbar.disabled = true;
 }
 
 function enterRoom() {
@@ -1208,8 +1236,10 @@ function enterRoom() {
     $("subSearchBtn").classList.remove("hidden");
   } else {
     $("controls").classList.remove("hidden");
-    applyViewerRestrictions();
+    $("controls").classList.add("viewer");
     $("waitOverlay").classList.remove("hidden");
+    $("subUploadBtn").classList.add("hidden");
+    $("subSearchBtn").classList.add("hidden");
   }
 
   // Update URL
@@ -1224,7 +1254,10 @@ function enterRoom() {
 function leaveRoom() {
   intentionalLeave = true;
   socket.disconnect();
-  location.reload();
+  sessionStorage.removeItem("viewnoveen_hostToken");
+  sessionStorage.removeItem("viewnoveen_roomCode");
+  sessionStorage.removeItem("viewnoveen_myName");
+  window.location.href = window.location.origin;
 }
 
 function copyCode() {
@@ -1364,9 +1397,11 @@ function getBufferAhead() {
 }
 
 function waitForStartupBuffer(callback) {
-  if (playerType !== 'localstream') { callback(); return; }
+  var _st = playerType;
+  if (_st !== 'localstream' && _st !== 'direct') { callback(); return; }
   bufMgr.isStartupBuffering = true;
-  console.log('[buffer] startup: waiting for ' + bufMgr.startupMinBuf + 's buffered');
+  var _minBuf = _st === 'direct' ? bufMgr.directStartupMinBuf : bufMgr.startupMinBuf;
+  console.log('[buffer] startup: waiting for ' + _minBuf + 's buffered (' + _st + ')');
 
   const onCanPlayThrough = function () {
     video.removeEventListener('canplaythrough', onCanPlayThrough);
@@ -1380,14 +1415,14 @@ function waitForStartupBuffer(callback) {
   const check = function () {
     if (!bufMgr.isStartupBuffering) return;
     const ahead = getBufferAhead();
-    if (ahead >= bufMgr.startupMinBuf || video.readyState >= 3) {
+    if (ahead >= _minBuf || video.readyState >= 3) {
       bufMgr.isStartupBuffering = false;
       video.removeEventListener('canplaythrough', onCanPlayThrough);
       console.log('[buffer] startup: ready (' + ahead.toFixed(1) + 's)');
       callback();
       return;
     }
-    console.log('[buffer] startup: ' + ahead.toFixed(1) + 's / ' + bufMgr.startupMinBuf + 's');
+    console.log('[buffer] startup: ' + ahead.toFixed(1) + 's / ' + _minBuf + 's');
     requestAnimationFrame(check);
   };
 
@@ -1404,37 +1439,46 @@ function waitForStartupBuffer(callback) {
 }
 
 function startBufferMonitor() {
-  if (playerType !== 'localstream') return;
-  console.log('[buffer] monitor started');
+  if (playerType !== 'localstream' && playerType !== 'direct') return;
+  var _st = playerType;
+  var _criticalLow = _st === 'direct' ? bufMgr.directCriticalLow : bufMgr.criticalLow;
+  var _safeResume = _st === 'direct' ? bufMgr.directSafeResume : bufMgr.safeResume;
+  console.log('[buffer] monitor started (' + _st + ')');
 
   function check() {
-    if (playerType !== 'localstream') return;
+    if (playerType !== _st) return;
     if (video.paused || bufMgr.isRebuffering) {
       requestAnimationFrame(check);
       return;
     }
     var ahead = getBufferAhead();
-    if (ahead < bufMgr.criticalLow) {
+    if (ahead < _criticalLow) {
       var now = Date.now();
       bufMgr.consecutiveStalls++;
       bufMgr.lastStallTime = now;
-      var resumeThreshold = bufMgr.safeResume * Math.min(bufMgr.consecutiveStalls, 3);
+      var resumeThreshold = _safeResume * Math.min(bufMgr.consecutiveStalls, 3);
       console.log('[buffer] CRITICAL: ' + ahead.toFixed(1) + 's ahead, pausing (stall #' + bufMgr.consecutiveStalls + ', resume at ' + resumeThreshold + 's)');
       bufMgr.isRebuffering = true;
       video.pause();
+      if (_st === 'direct') {
+        $("waitOverlay").classList.remove("hidden");
+        $("waitMsg").textContent = "Buffering...";
+      }
 
       function rebuild() {
-        if (playerType !== 'localstream') { bufMgr.isRebuffering = false; return; }
+        if (playerType !== _st) { bufMgr.isRebuffering = false; return; }
         var nowAhead = getBufferAhead();
         if (nowAhead >= resumeThreshold || video.readyState >= 3) {
           bufMgr.isRebuffering = false;
           socket.emit("sync-request");
-          video.play().catch(function () {});
           clearTimeout(bufMgr._stallTimer);
           bufMgr._stallTimer = setTimeout(function () {
             bufMgr.consecutiveStalls = 0;
             console.log('[buffer] stall counter reset');
           }, bufMgr.stallCooldown);
+          if (_st === 'direct') {
+            $("waitOverlay").classList.add("hidden");
+          }
           return;
         }
         console.log('[buffer] rebuilding: ' + nowAhead.toFixed(1) + 's / ' + resumeThreshold + 's');
@@ -1450,12 +1494,8 @@ function startBufferMonitor() {
 // ==================== CHANGE VIDEO ====================
 function directBack() {
   if (!isHost) return;
-  hideError();
-  if (playerType === "direct") {
-    changeVideo();
-    return;
-  }
-  if (syncTimer) { if (syncTimer.terminate) syncTimer.terminate(); else clearInterval(syncTimer); syncTimer = null; }
+  if (playerType === "direct") { changeVideo(); return; }
+  $("directSection").classList.add("hidden");
   $("directSection").classList.add("hidden");
   $("uploadArea").classList.remove("hidden");
   $("waitOverlay").classList.add("hidden");
@@ -1467,16 +1507,9 @@ function directBack() {
 
 function changeVideo() {
   if (!isHost) return;
-  hideError();
-  // Exit fullscreen FIRST, before clearing video, to avoid white area from detached fullscreen element
-  var _wasFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  if (document.fullscreenElement) document.exitFullscreen();
-  else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
   destroyYTPlayer();
-  if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
-  if (syncTimer) { if (syncTimer.terminate) syncTimer.terminate(); else clearInterval(syncTimer); syncTimer = null; }
+  if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
   video.pause();
-  video.querySelectorAll('track').forEach(t => { try { t.track.mode = 'disabled'; } catch(e) {} t.remove(); });
   video.src = "";
   video.load();
   videoMeta = null;
@@ -1492,28 +1525,36 @@ function changeVideo() {
   localSeek = false;
   playerType = null;
   pendingState = null;
-  _lastAppliedSeq = -1;
-  _pendingHostPlay = false;
   directPlaying = false;
   bufMgr.isStartupBuffering = false;
   bufMgr.isRebuffering = false;
   bufMgr.consecutiveStalls = 0;
   clearTimeout(bufMgr._stallTimer);
-  if (overlayTimer) { clearInterval(overlayTimer); overlayTimer = null; }
-  if (_syncWatchdogTimer) { clearInterval(_syncWatchdogTimer); _syncWatchdogTimer = null; }
+  if (_directStallTimer) { clearTimeout(_directStallTimer); _directStallTimer = null; }
+  directTime = 0;
+  _playEmitLast = 0;
+  _pauseEmitLast = 0;
+  _lastAppliedSeq = -1;
+  _pendingHostPlay = false;
+  _lastSyncTargetT = -1;
+  _lastSyncTime = 0;
+  _rttSamples = [];
+  _estRTT = 0;
+  _minRTT = Infinity;
+  _clockOffsetSamples = [];
+  _serverClockOffset = 0;
+  _syncWatchdogArmed = false;
+  if (_syncWatchdogTimer) { clearTimeout(_syncWatchdogTimer); _syncWatchdogTimer = null; }
+  removeSubtitle();
   if (window.hlsInstance) { window.hlsInstance.destroy(); window.hlsInstance = null; }
   if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} dashPlayer = null; }
-  if (document.fullscreenElement) document.exitFullscreen();
-  else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
   socket.emit("reset");
   $("controls").classList.remove("show");
   $("changeBtn").classList.add("hidden");
-  // Delay hiding playerArea until fullscreen transition completes
-  setTimeout(function() { $("playerArea").classList.add("hidden"); }, _wasFS ? 400 : 0);
+  $("playerArea").classList.add("hidden");
   $("youtubePlayer").classList.add("hidden");
   $("directIframe").classList.add("hidden");
   $("directIframe").src = "";
-  $("directClickBlocker").classList.add("hidden");
   video.classList.remove("hidden");
   $("playBtn").classList.remove("hidden");
   $("seekbar").classList.remove("hidden");
@@ -1560,41 +1601,26 @@ $("subInput").addEventListener("change", function (e) {
 });
 
 // ==================== SYNC TIMER ====================
-// Start periodic sync-state emission (host only). Uses setInterval for reliability.
+// Start periodic sync-state emission (host only). Call whenever a player becomes active.
 function startSyncTimer() {
-  if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
-  syncTimer = setInterval(function() {
-    try {
-      if (playerType === "youtube" && ytPlayer && ytPlayer.getCurrentTime) {
-        socket.emit("sync-state", { t: ytPlayer.getCurrentTime(), p: ytPlayer.getPlayerState() === YT.PlayerState.PLAYING });
-      } else if (video.duration) {
-        socket.emit("sync-state", { t: video.currentTime, p: !video.paused });
-      }
-    } catch (e) {}
-  }, 500);
-  if (_syncWatchdogTimer) clearInterval(_syncWatchdogTimer);
-  _syncWatchdogTimer = null;
+  if (syncTimer) { clearInterval(syncTimer); console.log("[DIAG-" + window._diagTag + "] startSyncTimer: cleared previous timer"); }
+  window._diagTimerCount = (window._diagTimerCount||0) + 1;
+  console.log("[DIAG-" + window._diagTag + "] startSyncTimer: new timer #" + window._diagTimerCount + " playerType=" + playerType);
+  syncTimer = setInterval(() => {
+    if (playerType === "youtube" && ytPlayer && ytPlayer.getCurrentTime) {
+      socket.emit("sync-state", { t: ytPlayer.getCurrentTime(), p: ytPlayer.getPlayerState() === YT.PlayerState.PLAYING, savedAt: Date.now() });
+    } else if (video.duration) {
+      socket.emit("sync-state", { t: video.currentTime, p: !video.paused, savedAt: Date.now() });
+    }
+  }, 1000);
 }
 
-// Burst sync-state when host tab becomes visible (Web Worker is not throttled, but catch up on return)
+// Emit sync-state immediately when host tab becomes visible
 document.addEventListener('visibilitychange', function() {
   if (document.hidden || !isHost) return;
-  function emitSync() {
-    if (playerType === "youtube" && ytPlayer && ytPlayer.getCurrentTime) {
-      socket.emit("sync-state", { t: ytPlayer.getCurrentTime(), p: ytPlayer.getPlayerState() === YT.PlayerState.PLAYING });
-    } else if (video.duration) {
-      socket.emit("sync-state", { t: video.currentTime, p: !video.paused });
-    }
+  if (playerType !== "youtube" && video.duration) {
+    socket.emit("sync-state", { t: video.currentTime, p: !video.paused, savedAt: Date.now() });
   }
-  emitSync();
-  setTimeout(emitSync, 200);
-  setTimeout(emitSync, 500);
-});
-
-// Viewer requests sync when returning to tab
-document.addEventListener('visibilitychange', function() {
-  if (document.hidden || isHost || !roomCode) return;
-  socket.emit("sync-request");
 });
 
 // ==================== SUBTITLES ====================
@@ -1653,11 +1679,9 @@ function applySubtitle() {
   if (!subtitleCues.length) return;
   var old = document.getElementById('subtitleTrack');
   if (old) old.remove();
-  if (_subtitleBlobUrl) { URL.revokeObjectURL(_subtitleBlobUrl); _subtitleBlobUrl = null; }
   var vtt = generateVTT(subtitleCues, subtitleDelay);
   var blob = new Blob([vtt], { type: 'text/vtt' });
   var url = URL.createObjectURL(blob);
-  _subtitleBlobUrl = url;
   var track = document.createElement('track');
   track.id = 'subtitleTrack';
   track.kind = 'subtitles';
@@ -1665,6 +1689,7 @@ function applySubtitle() {
   track.src = url;
   track.default = true;
   video.appendChild(track);
+  // Force track mode to showing
   if (track.track) track.track.mode = 'showing';
 }
 
@@ -1689,8 +1714,7 @@ function loadSubtitle() {
 
 function removeSubtitle() {
   var track = document.getElementById('subtitleTrack');
-  if (track) { try { track.track.mode = 'disabled'; } catch(e) {} track.remove(); }
-  if (_subtitleBlobUrl) { URL.revokeObjectURL(_subtitleBlobUrl); _subtitleBlobUrl = null; }
+  if (track) track.remove();
   subtitleCues = [];
   subtitleDelay = 0;
   $('subFileName').classList.add('hidden');
@@ -1734,24 +1758,24 @@ function showSubSearchStatus(msg, isError) {
   var el = $("subSearchStatus");
   el.textContent = msg;
   el.style.display = "block";
-  el.style.color = isError ? "var(--red)" : "var(--text2)";
+  el.style.color = isError ? "var(--accent)" : "var(--text-muted)";
 }
 
 function showSubSearchResults(results) {
   var container = $("subSearchResults");
   $("subSearchStatus").style.display = "none";
   if (!results.length) {
-    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px">No subtitles found. Try a different title or language.</div>';
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">No subtitles found. Try a different title or language.</div>';
     return;
   }
   var html = '';
   for (var i = 0; i < results.length; i++) {
     var r = results[i];
-    html += '<div class="sub-search-result" data-fileid="' + r.fileId + '" onclick="selectSubtitle(this)" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--radius);cursor:pointer;background:var(--surface2);transition:background .15s;border:1px solid var(--border)">';
+    html += '<div class="sub-search-result" data-fileid="' + r.fileId + '" onclick="selectSubtitle(this)" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--radius);cursor:pointer;background:var(--surface-elevated);transition:background .15s;border:1px solid var(--border)">';
     html += '<span style="font-weight:700;font-size:13px;color:var(--text);min-width:36px">' + esc(r.language) + '</span>';
     html += '<span style="flex:1;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(r.title) + (r.year ? ' (' + r.year + ')' : '') + '</span>';
-    html += '<span style="font-size:11px;color:var(--text3);white-space:nowrap">' + r.downloads + ' dl</span>';
-    if (r.rating > 0) html += '<span style="font-size:11px;color:var(--text3)">&#9733; ' + r.rating.toFixed(1) + '</span>';
+    html += '<span style="font-size:11px;color:var(--text-muted);white-space:nowrap">' + r.downloads + ' dl</span>';
+    if (r.rating > 0) html += '<span style="font-size:11px;color:var(--text-muted)">&#9733; ' + r.rating.toFixed(1) + '</span>';
     html += '<span style="font-size:16px;color:var(--primary)">&#x279C;</span>';
     html += '</div>';
   }
@@ -1786,6 +1810,19 @@ function applyDownloadedSubtitle(vtt) {
 // ==================== END SUBTITLE SEARCH ====================
 
 // ==================== FULLSCREEN ====================
+function resetFsControlsTimer() {
+  if (window.innerWidth <= 768) return;
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) return;
+  const el = $("controls");
+  if (!el) return;
+  if ($("fsChatPanel").classList.contains("show")) return;
+  el.classList.add("show");
+  clearTimeout(_fsControlsTimer);
+  _fsControlsTimer = setTimeout(function() {
+    el.classList.remove("show");
+  }, 3000);
+}
+
 function toggleFullscreen() {
   const pa = $("playerArea");
   if (!document.fullscreenElement && !document.webkitFullscreenElement) {
@@ -1804,73 +1841,50 @@ function toggleFullscreen() {
       document.webkitExitFullscreen();
     }
   }
+  updateFsIcon();
 }
 
-var _fullscreenIdleTimer = null;
-var _fullscreenIdleDuration = 3000;
+function updateFsIcon() {
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  $("fsBtn").innerHTML = isFs ? "&#x26F6;" : "&#x26F6;";
+}
 
-function _onFSMouseMove() {
-  $("controls").classList.add("show");
-  var overlay = $("fsOverlay");
-  if (overlay) overlay.style.cursor = "default";
-  clearTimeout(_fullscreenIdleTimer);
-  _fullscreenIdleTimer = setTimeout(function() {
+document.addEventListener("fullscreenchange", () => {
+  const isFs = !!document.fullscreenElement;
+  $("chatFsBtn").classList.toggle("hidden", !isFs);
+  if (!isFs) {
+    $("fsChatPanel").classList.remove("show");
+    clearTimeout(_fsControlsTimer);
     $("controls").classList.remove("show");
-    if (overlay) overlay.style.cursor = "none";
-  }, _fullscreenIdleDuration);
-}
-
-
-
-function _onFullscreenChange() {
-  var isFs = !!document.fullscreenElement;
-  $("chatFsBtn").classList.toggle("hidden", !isFs);
-  if (!isFs) $("fsChatPanel").classList.remove("show");
-  if (isFs) {
-    clearTimeout(_fullscreenIdleTimer);
-    $("fsOverlay").style.display = "block";
-    $("fsOverlay").addEventListener("mousemove", _onFSMouseMove);
-    $("fsOverlay").addEventListener("touchstart", _onFSMouseMove, { passive: true });
-    _onFSMouseMove();
+    document.removeEventListener("mousemove", resetFsControlsTimer);
+    document.removeEventListener("touchstart", resetFsControlsTimer);
   } else {
-    clearTimeout(_fullscreenIdleTimer);
-    _fullscreenIdleTimer = null;
-    $("fsOverlay").style.display = "none";
-    $("fsOverlay").removeEventListener("mousemove", _onFSMouseMove);
-    $("fsOverlay").removeEventListener("touchstart", _onFSMouseMove);
-    // On fullscreen exit, briefly show controls then fall back to CSS :hover
-    $("controls").classList.add("show");
-    setTimeout(function() { $("controls").classList.remove("show"); }, 1000);
+    document.addEventListener("mousemove", resetFsControlsTimer);
+    document.addEventListener("touchstart", resetFsControlsTimer);
+    resetFsControlsTimer();
   }
   _inFullscreenTransition = true;
-  setTimeout(function() { _inFullscreenTransition = false; }, 300);
-}
-document.addEventListener("fullscreenchange", _onFullscreenChange);
-document.addEventListener("webkitfullscreenchange", function() {
-  var isFs = !!document.webkitFullscreenElement;
-  $("chatFsBtn").classList.toggle("hidden", !isFs);
-  if (!isFs) $("fsChatPanel").classList.remove("show");
-  if (isFs) {
-    clearTimeout(_fullscreenIdleTimer);
-    $("fsOverlay").style.display = "block";
-    $("fsOverlay").addEventListener("mousemove", _onFSMouseMove);
-    $("fsOverlay").addEventListener("touchstart", _onFSMouseMove, { passive: true });
-    _onFSMouseMove();
-  } else {
-    clearTimeout(_fullscreenIdleTimer);
-    _fullscreenIdleTimer = null;
-    $("fsOverlay").style.display = "none";
-    $("fsOverlay").removeEventListener("mousemove", _onFSMouseMove);
-    $("fsOverlay").removeEventListener("touchstart", _onFSMouseMove);
-    // Brief show after fullscreen exit
-    $("controls").classList.add("show");
-    setTimeout(function() { $("controls").classList.remove("show"); }, 1000);
-  }
-  _inFullscreenTransition = true;
-  setTimeout(function() { _inFullscreenTransition = false; }, 300);
+  updateFsIcon();
+  setTimeout(() => { _inFullscreenTransition = false; }, 300);
 });
-
-// Listeners added/removed dynamically in destroyYTPlayer() and socket.on("meta")
+document.addEventListener("webkitfullscreenchange", () => {
+  const isFs = !!document.webkitFullscreenElement;
+  $("chatFsBtn").classList.toggle("hidden", !isFs);
+  if (!isFs) {
+    $("fsChatPanel").classList.remove("show");
+    clearTimeout(_fsControlsTimer);
+    $("controls").classList.remove("show");
+    document.removeEventListener("mousemove", resetFsControlsTimer);
+    document.removeEventListener("touchstart", resetFsControlsTimer);
+  } else {
+    document.addEventListener("mousemove", resetFsControlsTimer);
+    document.addEventListener("touchstart", resetFsControlsTimer);
+    resetFsControlsTimer();
+  }
+  _inFullscreenTransition = true;
+  updateFsIcon();
+  setTimeout(() => { _inFullscreenTransition = false; }, 300);
+});
 
 // ==================== VIDEO PLAYER ====================
 function seekRelative(delta) {
@@ -1879,13 +1893,7 @@ function seekRelative(delta) {
   if (playerType === "youtube" && ytPlayer && ytPlayer.getCurrentTime && ytPlayer.seekTo) {
     t = ytPlayer.getCurrentTime() + delta;
     t = Math.max(0, Math.min(t, d || 0));
-    const wasPaused = ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING;
     ytPlayer.seekTo(t, true);
-    if (wasPaused) {
-      _suppressYTPlay = true;
-      setTimeout(() => { _suppressYTPlay = false; }, 1000);
-      setTimeout(() => { if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo(); }, 50);
-    }
   } else {
     t = video.currentTime + delta;
     t = Math.max(0, Math.min(t, d || Infinity));
@@ -1899,13 +1907,27 @@ function seekRelative(delta) {
 }
 
 function togglePlay() {
-  if (!isHost || ignoreNext) return;
-  if (playerType === "youtube" && ytPlayer && ytPlayer.getPlayerState) {
-    if (ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
-    else ytPlayer.playVideo();
-  } else if (video.paused) {
-    video.play().catch(() => {});
+  if (playerType === "youtube" && ytPlayer) {
+    var ps = ytPlayer.getPlayerState();
+    if (ps === YT.PlayerState.PLAYING) { ytPlayer.pauseVideo(); }
+    else { ytPlayer.playVideo(); }
+    return;
+  }
+  if (video.paused) {
+    if (isHost) {
+      var now = Date.now();
+      if (now - _playEmitLast < 300) return;
+      _playEmitLast = now;
+      socket.emit("play", _compensateViewerTime(video.currentTime, null, false));
+    }
+    video.play().catch(function(){});
   } else {
+    if (isHost) {
+      var now = Date.now();
+      if (now - _pauseEmitLast < 300) return;
+      _pauseEmitLast = now;
+      socket.emit("pause", _compensateViewerTime(video.currentTime, null, true));
+    }
     video.pause();
   }
 }
@@ -1915,13 +1937,7 @@ function onSeek() {
   localSeek = true;
   const t = (seekbar.value / 1000) * getDuration();
   if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
-    const wasPaused = ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING;
     ytPlayer.seekTo(t, true);
-    if (wasPaused) {
-      _suppressYTPlay = true;
-      setTimeout(() => { _suppressYTPlay = false; }, 1000);
-      setTimeout(() => { if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo(); }, 50);
-    }
   } else if (playerType === "proxy") {
     // Check if seek is within already-buffered range
     const buffered = video.buffered;
@@ -1943,31 +1959,32 @@ function onSeek() {
 
 
 video.addEventListener("play", () => {
-  playBtn.innerHTML = "\u23F8";
-  if (isHost && !ignoreNext && playerType !== "youtube") {
-    socket.emit("play", video.currentTime);
+  playBtn.innerHTML = "\u25B6\uFE0E";
+  if (isHost && !localSeek && !ignoreNext && !_inFullscreenTransition && playerType !== "youtube" && !bufMgr.isRebuffering) {
+    var now = Date.now();
+    if (now - _playEmitLast < 300) return;
+    _playEmitLast = now;
+    socket.emit("play", _compensateViewerTime(video.currentTime, null, false));
   }
 });
 
-let _pauseEmitLast = 0;
-let _systemPause = false;
+video.addEventListener("pause", () => {
+  playBtn.innerHTML = "\u25B6";
+  if (_systemPause) { _systemPause = false; return; }
+  if (isHost && !ignoreNext && playerType !== "youtube" && !bufMgr.isRebuffering) {
+    var now = Date.now();
+    if (now - _pauseEmitLast < 300) return;
+    _pauseEmitLast = now;
+    socket.emit("pause", _compensateViewerTime(video.currentTime, null, true));
+  }
+});
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) _systemPause = false;
   if (document.hidden && isHost && !video.paused) _systemPause = true;
 });
-video.addEventListener("pause", () => {
-  playBtn.innerHTML = "\u25B6";
-  if (_systemPause) { _systemPause = false; return; }
-  const now = Date.now();
-  const dt = now - _pauseEmitLast;
-  if (isHost && !ignoreNext && dt > 200 && playerType !== "youtube") {
-    _pauseEmitLast = now;
-    socket.emit("pause", video.currentTime);
-  }
-});
 
 video.addEventListener("seeked", () => {
-  if (isHost && !localSeek && !ignoreNext && playerType !== "youtube") socket.emit("seek", video.currentTime);
+  if (isHost && !localSeek && !ignoreNext && !_inFullscreenTransition && playerType !== "youtube") socket.emit("seek", video.currentTime);
 });
 
 video.addEventListener("timeupdate", () => {
@@ -1976,60 +1993,47 @@ video.addEventListener("timeupdate", () => {
   timeDisplay.textContent = `${fmtTime(video.currentTime)} / ${fmtTime(video.duration)}`;
 });
 
-video.addEventListener("emptied", () => {
-  // emptied logging removed
-});
 video.addEventListener("loadedmetadata", () => {
   seekbar.max = 1000;
-  if (pendingState && playerType !== "youtube") {
-    const psStale = pendingState._seq !== undefined && pendingState._seq <= _lastAppliedSeq;
-    if (!psStale) {
-      if (Math.abs(video.currentTime - pendingState.t) > 1.5) {
-        video.currentTime = pendingState.t;
-      }
-      if (pendingState.p && video.paused) {
-        var _p = video.play();
-        if (_p && typeof _p.catch === 'function') _p.catch(function() {});
-      } else if (!pendingState.p && !video.paused) {
-        video.pause();
-      }
+  if (pendingState && playerType && playerType !== "youtube") {
+    if (Math.abs(video.currentTime - pendingState.t) > 3) {
+      video.currentTime = pendingState.t;
     }
-    if (pendingState._seq !== undefined) _lastAppliedSeq = Math.max(_lastAppliedSeq, pendingState._seq);
+    if (pendingState.p && video.paused) {
+      video.play().catch(() => {});
+    } else if (!pendingState.p && !video.paused && Date.now() - _lastSrcSetAt > 3000) {
+      video.pause();
+    }
     pendingState = null;
   }
 });
 
 video.addEventListener("canplay", () => {
-  if (playerType === "localstream" && (bufMgr.isStartupBuffering || bufMgr.isRebuffering)) return;
+  if ((playerType === "localstream" || playerType === "direct") && (bufMgr.isStartupBuffering || bufMgr.isRebuffering)) return;
   if (!$("waitOverlay").classList.contains("hidden")) {
     $("waitOverlay").classList.add("hidden");
     liveBadge.classList.remove("hidden");
   }
-  if (_pendingHostPlay && video.paused) { _pendingHostPlay = false; video.play().catch(function() {}); }
 });
 
-video.addEventListener("error", () => {
-  if (!playerType) return;
-  if (window.hlsInstance || dashPlayer) return;
-  if (!video.src && !video.currentSrc) return;
-  if (!video.error) return;
-  $("waitOverlay").classList.add("hidden");
-  showError("Video failed to load. The source may be unavailable or blocked.");
-});
+// Legacy iframe message handler (no longer used since Direct uses native video)
+window.addEventListener("message", () => {});
 
+// Fallback: hide overlay after 10s even if video never reports ready
 let overlayTimer = null;
 function scheduleOverlayTimeout() {
   if (overlayTimer) clearInterval(overlayTimer);
-  overlayTimer = setInterval(function() {
-    if ($("waitOverlay").classList.contains("hidden")) return;
-    if (playerType === "localstream") return;
-    $("waitOverlay").classList.add("hidden");
-    clearInterval(overlayTimer);
-    overlayTimer = null;
-    if (video.error || (!video.src && !video.currentSrc && !window.hlsInstance && !dashPlayer)) {
-      showError("Video failed to load. The source may be unavailable or blocked.");
-    } else {
+  overlayTimer = setInterval(() => {
+    if (playerType === "localstream" || playerType === "direct") {
+      clearInterval(overlayTimer);
+      overlayTimer = null;
+      return;
+    }
+    if (!$("waitOverlay").classList.contains("hidden")) {
+      $("waitOverlay").classList.add("hidden");
       liveBadge.classList.remove("hidden");
+      clearInterval(overlayTimer);
+      overlayTimer = null;
     }
   }, 10000);
 }
@@ -2054,7 +2058,7 @@ function selectSource(type) {
 
 function extractYouTubeId(val) {
   const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
     /^([a-zA-Z0-9_-]{11})$/,
   ];
   for (const p of patterns) {
@@ -2104,6 +2108,14 @@ function loadDrive() {
   const fileId = extractDriveId(val);
   if (!fileId) return toast("Invalid Google Drive link");
   const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+  playerType = "drive";
+  video.src = directUrl;
+  video.load();
+  $("playerArea").classList.remove("hidden");
+  $("waitOverlay").classList.remove("hidden");
+  $("waitMsg").textContent = "Loading video...";
+  $("uploadArea").classList.add("hidden");
+  liveBadge.classList.add("hidden");
   socket.emit("meta", { source: "drive", fileId, directUrl });
   $("changeBtn").classList.remove("hidden");
 }
@@ -2128,7 +2140,6 @@ function loadDirect() {
 function setupDirectPlayback(proxyUrl, isHls, isDash) {
   $("directIframe").classList.add("hidden");
   $("directIframe").src = "";
-  $("directClickBlocker").classList.add("hidden");
   video.classList.remove("hidden");
   $("youtubePlayer").classList.add("hidden");
   $("playerArea").classList.remove("hidden");
@@ -2136,13 +2147,6 @@ function setupDirectPlayback(proxyUrl, isHls, isDash) {
   $("waitOverlay").classList.remove("hidden");
   $("waitMsg").textContent = "Loading video...";
   $("controls").classList.add("show");
-  // Remove show class after 3s so CSS hover behavior takes over in non-fullscreen
-  clearTimeout(window._ctrlShowTimer);
-  window._ctrlShowTimer = setTimeout(function() {
-    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-      $("controls").classList.remove("show");
-    }
-  }, 3000);
   liveBadge.classList.add("hidden");
   playerType = "direct";
   _lastSrcSetAt = Date.now();
@@ -2151,9 +2155,6 @@ function setupDirectPlayback(proxyUrl, isHls, isDash) {
     var h = new Hls();
     window._diagHlsCount = (window._diagHlsCount||0) + 1;
     window.hlsInstance = h;
-    h.on(Hls.Events.ERROR, function(evt, data) {
-      if (data.fatal) { showError("Video stream failed to load (HLS error). The source may be unavailable or blocked."); }
-    });
     h.loadSource(proxyUrl);
     h.attachMedia(video);
   } else if (isDash && window.dashjs && window.dashjs.MediaPlayer) {
@@ -2164,41 +2165,25 @@ function setupDirectPlayback(proxyUrl, isHls, isDash) {
   } else {
     video.src = proxyUrl;
     video.load();
+    waitForStartupBuffer(function () {
+      $("waitOverlay").classList.add("hidden");
+      liveBadge.classList.remove("hidden");
+      startBufferMonitor();
+      if (_pendingHostPlay && video.paused) { _pendingHostPlay = false; video.play().catch(function() {}); }
+    });
   }
 }
 
-// ── Stremio tunnel rewrite helpers ──
-function getStremioTunnel() {
-  try { return localStorage.getItem("vn_stremio_tunnel") || ""; } catch(e) { return ""; }
-}
-function saveStremioTunnel() {
-  var val = $("stremioTunnelInput").value.trim().replace(/\/+$/, "");
-  try { localStorage.setItem("vn_stremio_tunnel", val); } catch(e) {}
-}
-function clearStremioTunnel() {
-  $("stremioTunnelInput").value = "";
-  try { localStorage.removeItem("vn_stremio_tunnel"); } catch(e) {}
-  toast("Stremio tunnel cleared.");
-}
-function rewriteStremioUrl(url) {
-  var tunnel = getStremioTunnel();
-  if (!tunnel) return url;
-  tunnel = tunnel.replace(/\/+$/, "");
-  return url
-    .replace(/http:\/\/127\.0\.0\.1:11470/g, tunnel)
-    .replace(/http:\/\/localhost:11470/g, tunnel);
-}
-
 function startDirect(url) {
-  var rewritten = rewriteStremioUrl(url);
-  var proxyUrl = "/proxy?url=" + encodeURIComponent(rewritten);
+  console.log("[DIAG-" + window._diagTag + "] startDirect url=" + url.substring(0,80));
+  var proxyUrl = "/proxy?url=" + encodeURIComponent(url);
   window._diagProxyUrl = proxyUrl;
-  var isHls = rewritten.toLowerCase().includes(".m3u8");
-  var isDash = rewritten.toLowerCase().includes(".mpd");
+  var isHls = url.toLowerCase().endsWith(".m3u8");
+  var isDash = url.toLowerCase().endsWith(".mpd");
   setupDirectPlayback(proxyUrl, isHls, isDash);
   $("changeBtn").classList.remove("hidden");
   $("fsBtn").classList.remove("hidden");
-  socket.emit("meta", { source: "direct", url: rewritten, isHls, isDash });
+  socket.emit("meta", { source: "direct", url, isHls, isDash });
   startSyncTimer();
 }
 
@@ -2214,7 +2199,8 @@ function startTorrent(torrentId) {
   $("youtubePlayer").classList.add("hidden");
   socket.emit("meta", { source: "torrent", torrentId });
   if (!torrentClient) torrentClient = new WebTorrent();
-  var onTorrent = function(torrent) {
+  if (torrentObj) { torrentObj.destroy(); torrentObj = null; }
+  torrentClient.add(torrentId, { announce: [] }, (torrent) => {
     torrentObj = torrent;
     const file = torrent.files.find((f) => f.name.match(/\.(mp4|mkv|webm|mov|avi|m4v)$/i));
     if (!file) { toast("No playable video file found in torrent"); return; }
@@ -2228,15 +2214,7 @@ function startTorrent(torrentId) {
     file.on("progress", () => {
       $("waitMsg").textContent = `Downloading "${file.name}"... ${Math.round(file.progress * 100)}%`;
     });
-  };
-  if (torrentObj) {
-    torrentObj.destroy(function() {
-      torrentObj = null;
-      torrentClient.add(torrentId, onTorrent);
-    });
-  } else {
-    torrentClient.add(torrentId, onTorrent);
-  }
+  });
   torrentClient.on("error", (err) => { toast("Torrent error: " + err.message); });
 }
 
@@ -2274,26 +2252,18 @@ function createYTPlayer(videoId) {
 
 function destroyYTPlayer() {
   if (ytPlayer) { try { ytPlayer.destroy(); } catch (e) {} ytPlayer = null; }
-  if (ytLoadTimer) { clearInterval(ytLoadTimer); ytLoadTimer = null; }
   if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
-  $("ytClickBlocker").classList.add("hidden");
+  if (ytLoadTimer) { clearInterval(ytLoadTimer); ytLoadTimer = null; }
 }
 
 function onYTReady() {
   if (ytInterval) clearInterval(ytInterval);
   ytInterval = setInterval(updateYTTime, 250);
   startSyncTimer();
-  if (_ytReclaimMode) {
-    _ytReclaimMode = false;
-    $("waitOverlay").classList.add("hidden");
-  }
   if (pendingState) {
-    const psStale = pendingState._seq !== undefined && pendingState._seq <= _lastAppliedSeq;
     ytPlayer.seekTo(pendingState.t, true);
-    if (!psStale) {
-      if (pendingState.p) ytPlayer.playVideo();
-      else ytPlayer.pauseVideo();
-    }
+    if (pendingState.p) ytPlayer.playVideo();
+    else ytPlayer.pauseVideo();
     pendingState = null;
   }
   if (isHost && ytJustLoaded) {
@@ -2304,17 +2274,11 @@ function onYTReady() {
 }
 
 function onYTStateChange(event) {
-  if (!isHost || ignoreNext) return;
+  if (!isHost || !ytPlayer || playerType !== "youtube" || ignoreNext || localSeek || _systemPause) return;
   if (event.data === YT.PlayerState.PLAYING) {
-    if (_suppressYTPlay) { _suppressYTPlay = false; return; }
     playBtn.innerHTML = "\u23F8";
     socket.emit("play", ytPlayer.getCurrentTime());
   } else if (event.data === YT.PlayerState.PAUSED) {
-    _suppressYTPlay = false;
-    playBtn.innerHTML = "\u25B6";
-    socket.emit("pause", ytPlayer.getCurrentTime());
-  } else if (event.data === YT.PlayerState.ENDED) {
-    _suppressYTPlay = false;
     playBtn.innerHTML = "\u25B6";
     socket.emit("pause", ytPlayer.getCurrentTime());
   }
@@ -2339,23 +2303,21 @@ function getDuration() {
 
 // ==================== SOCKET EVENTS ====================
 socket.on("meta", (m) => {
-  hideError();
   videoMeta = m;
   destroyYTPlayer();
   if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
   $("youtubePlayer").classList.add("hidden");
   video.classList.remove("hidden");
   $("controls").classList.remove("hidden");
-  if (isHost) $("controls").classList.add("show");
-  if (!isHost) applyViewerRestrictions();
+  $("controls").classList.add("viewer");
 
+  // YouTube source
   if (m.source === "youtube") {
     playerType = "youtube";
     $("playerArea").classList.remove("hidden");
     $("uploadArea").classList.add("hidden");
     $("waitOverlay").classList.add("hidden");
     liveBadge.classList.remove("hidden");
-    $("ytClickBlocker").classList.remove("hidden");
 
     if (ytApiReady) {
       createYTPlayer(m.videoId);
@@ -2364,12 +2326,6 @@ socket.on("meta", (m) => {
       ytLoadTimer = setInterval(() => {
         if (ytApiReady) { clearInterval(ytLoadTimer); ytLoadTimer = null; createYTPlayer(m.videoId); }
       }, 200);
-      setTimeout(() => {
-        if (ytLoadTimer) {
-          clearInterval(ytLoadTimer); ytLoadTimer = null;
-          toast("YouTube API failed to load. Ask the host to change the video.", 5000);
-        }
-      }, 15000);
     }
     return;
   }
@@ -2383,7 +2339,6 @@ socket.on("meta", (m) => {
     liveBadge.classList.add("hidden");
     video.src = m.directUrl;
     video.load();
-    if (!isHost) setTimeout(function() { resumeAudio(); }, 300);
     return;
   }
 
@@ -2392,20 +2347,19 @@ socket.on("meta", (m) => {
     if (!m.url || m.url.trim() === '' || m.url === 'undefined') { console.warn("meta direct: empty/undefined url, ignoring"); return; }
     directPlaying = false;
     var proxyUrl = "/proxy?url=" + encodeURIComponent(m.url);
-    var isHls = m.isHls || m.url.toLowerCase().includes(".m3u8");
-    var isDash = m.isDash || m.url.toLowerCase().includes(".mpd");
+    var isHls = m.url.toLowerCase().endsWith(".m3u8");
+    var isDash = m.url.toLowerCase().endsWith(".mpd");
     setupDirectPlayback(proxyUrl, isHls, isDash);
-    if (!isHost) setTimeout(function() { resumeAudio(); }, 300);
     return;
   }
 
-  // Torrent source (host-only)
+  // Torrent source
   if (m.source === "torrent") {
     playerType = "torrent";
     $("playerArea").classList.remove("hidden");
     $("uploadArea").classList.add("hidden");
     $("waitOverlay").classList.remove("hidden");
-    $("waitMsg").textContent = "This room uses torrent streaming (host-only). Ask the host to switch to a shareable source.";
+    $("waitMsg").textContent = "Host is loading torrent...";
     video.classList.add("hidden");
     $("youtubePlayer").classList.add("hidden");
     return;
@@ -2432,7 +2386,6 @@ socket.on("meta", (m) => {
       proxyBuffer = [];
       useFallback = true;
     }
-    if (!isHost) setTimeout(function() { resumeAudio(); }, 300);
     return;
   }
 
@@ -2452,7 +2405,6 @@ socket.on("meta", (m) => {
       liveBadge.classList.remove("hidden");
       startBufferMonitor();
     });
-    if (!isHost) setTimeout(function() { resumeAudio(); }, 300);
     return;
   }
 
@@ -2480,10 +2432,10 @@ socket.on("meta", (m) => {
   } else {
     useFallback = true;
   }
-  if (!isHost) setTimeout(function() { resumeAudio(); }, 300);
 });
 
 socket.on("chunk", (d) => {
+  if (playerType !== "upload" && playerType !== "proxy") return;
   const buf = new Uint8Array(d.d);
   chunkBuf[d.i] = buf;
   if (!receiving) {
@@ -2506,6 +2458,7 @@ socket.on("chunk", (d) => {
 });
 
 socket.on("proxy-chunk", (data) => {
+  if (playerType !== "proxy") return;
   const buf = new Uint8Array(data.d);
   if (useFallback && proxyBuffer) {
     proxyBuffer.push(buf);
@@ -2516,6 +2469,7 @@ socket.on("proxy-chunk", (data) => {
 });
 
 socket.on("proxy-end", () => {
+  if (playerType !== "proxy") return;
   if (useFallback && proxyBuffer && proxyBuffer.length > 0) {
     const blob = new Blob(proxyBuffer, { type: videoMeta ? videoMeta.type || "video/mp4" : "video/mp4" });
     video.src = URL.createObjectURL(blob);
@@ -2531,19 +2485,14 @@ socket.on("proxy-end", () => {
 });
 
 socket.on("proxy-meta", (meta) => {
-  // Update content-type from upstream response (more accurate than HEAD)
+  if (playerType !== "proxy") return;
   if (meta.contentType && videoMeta && videoMeta.source === "proxy") {
     videoMeta.type = meta.contentType;
-  }
-  // Store content-length for potential byte-offset seeking
-  if (meta.contentLength && videoMeta && videoMeta.source === "proxy") {
-    videoMeta.contentLength = meta.contentLength;
   }
 });
 
 socket.on("proxy-flush", () => {
-  // Server is restarting the stream from a new byte position
-  // Clear existing buffer and prepare for new chunks
+  if (playerType !== "proxy") return;
   if (ms && ms.readyState === "open" && sb) {
     try {
       sb.abort();
@@ -2565,100 +2514,126 @@ socket.on("proxy-flush", () => {
 });
 
 socket.on("proxy-error", (msg) => {
+  if (playerType !== "proxy") return;
+  toast("Proxy stream error: " + msg);
   proxyMode = false;
   proxyBuffer = null;
   $("waitOverlay").classList.add("hidden");
-  showError("Proxy stream error: " + msg);
 });
 
-socket.on("play", (data) => {
-  hideError();
-  if (bufMgr.isRebuffering) return;
-  const t = typeof data === 'object' ? data.t : data;
-  const seq = typeof data === 'object' ? data._seq : undefined;
-  const savedAt = typeof data === 'object' ? data.savedAt : undefined;
-  if (seq !== undefined && seq < _lastAppliedSeq) return;
-  if (seq !== undefined) _lastAppliedSeq = Math.max(_lastAppliedSeq, seq);
-  const _compT = savedAt ? t + (Date.now() - savedAt) / 1000 : t + (_estRTT / 2 / 1000);
+socket.on("play", ({ t, savedAt }) => {
+  if (!playerType || bufMgr.isRebuffering) return;
+  if (isHost && !_inFullscreenTransition) return;
+  ignoreNext = false;
+  updateClockOffset(savedAt);
+  const _compT = _compensateViewerTime(t, savedAt, false);
   if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
     ytPlayer.seekTo(_compT, true);
     ytPlayer.playVideo();
-  } else if (playerType === "youtube") {
-    pendingState = { t: _compT, p: true, _seq: seq };
   } else {
     video.currentTime = _compT;
-    var _p = video.play();
-    if (_p && typeof _p.catch === 'function') _p.catch(function() {});
+    video.play().catch(() => {});
   }
 });
 
-socket.on("pause", (data) => {
-  const t = typeof data === 'object' ? data.t : data;
-  const seq = typeof data === 'object' ? data._seq : undefined;
-  const savedAt = typeof data === 'object' ? data.savedAt : undefined;
-  if (seq !== undefined && seq < _lastAppliedSeq) return;
-  if (seq !== undefined) _lastAppliedSeq = Math.max(_lastAppliedSeq, seq);
-  var _compPause = savedAt ? t + (Date.now() - savedAt) / 1000 : t + (_estRTT / 2 / 1000);
+socket.on("pause", ({ t, savedAt }) => {
+  if (!playerType || bufMgr.isRebuffering || (isHost && !_inFullscreenTransition)) return;
+  if (_speedSyncActive) {
+    clearTimeout(_speedSyncTimeout);
+    video.playbackRate = 1.0;
+    _speedSyncActive = false;
+  }
+  ignoreNext = false;
+  updateClockOffset(savedAt);
+  const _compPause = _compensateViewerTime(t, savedAt, true);
   if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
     ytPlayer.seekTo(_compPause, true);
     ytPlayer.pauseVideo();
-  } else if (playerType === "youtube") {
-    pendingState = { t: _compPause, p: false, _seq: seq };
   } else {
     video.currentTime = _compPause;
-    video.pause();
-    _pendingHostPlay = false;
+    if (Date.now() - _lastSrcSetAt > 3000) video.pause();
   }
 });
 
-socket.on("seek", (data) => {
-  const t = typeof data === 'object' ? data.t : data;
-  const seq = typeof data === 'object' ? data._seq : undefined;
-  const savedAt = typeof data === 'object' ? data.savedAt : undefined;
-  if (seq !== undefined && seq < _lastAppliedSeq) return;
-  if (seq !== undefined) _lastAppliedSeq = Math.max(_lastAppliedSeq, seq);
-  var _compSeek = savedAt ? t + (Date.now() - savedAt) / 1000 : t + (_estRTT / 2 / 1000);
+socket.on("seek", ({ t, savedAt }) => {
+  if (!playerType || (isHost && !_inFullscreenTransition)) return;
+  if (_speedSyncActive) {
+    clearTimeout(_speedSyncTimeout);
+    video.playbackRate = 1.0;
+    _speedSyncActive = false;
+  }
+  ignoreNext = false;
+  updateClockOffset(savedAt);
+  const _compSeek = _compensateViewerTime(t, savedAt, true);
   if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
     ytPlayer.seekTo(_compSeek, true);
-  } else if (playerType === "youtube") {
-    if (pendingState) pendingState.t = _compSeek;
-    else pendingState = { t: _compSeek, p: true, _seq: seq };
   } else {
     video.currentTime = _compSeek;
   }
 });
 
 socket.on("sync-state", ({ t, p, _seq, savedAt }) => {
-  if (isHost) return;
+  if (isHost || !playerType) return;
   if (bufMgr.isRebuffering) return;
-  const isStale = _seq !== undefined && _seq < _lastAppliedSeq;
-  const compensatedT = savedAt ? t + (Date.now() - savedAt) / 1000 : t + (_estRTT / 2 / 1000);
+  if (_seq !== undefined) {
+    if (_seq < _lastAppliedSeq) return;
+    _lastAppliedSeq = Math.max(_lastAppliedSeq, _seq);
+  }
+  if (!_syncWatchdogArmed) {
+    _syncWatchdogArmed = true;
+    _syncWatchdogTimer = setTimeout(function requestSync() {
+      if (isHost || !roomCode) return;
+      socket.emit("sync-request");
+      if (_syncWatchdogArmed) _syncWatchdogTimer = setTimeout(requestSync, 10000);
+    }, 5000);
+  } else {
+    clearTimeout(_syncWatchdogTimer);
+    _syncWatchdogTimer = setTimeout(function requestSync() {
+      if (isHost || !roomCode) return;
+      socket.emit("sync-request");
+      if (_syncWatchdogArmed) _syncWatchdogTimer = setTimeout(requestSync, 10000);
+    }, 5000);
+  }
+  updateClockOffset(savedAt);
+  const compensatedT = _compensateViewerTime(t, savedAt, !p);
   if (playerType === "youtube") {
     if (ytPlayer && ytPlayer.getCurrentTime) {
       const ct = ytPlayer.getCurrentTime();
-      if (Math.abs(ct - compensatedT) > 1.5) {
+      var ytDriftThreshold = Math.max(1.5, 1 + _estRTT / 500);
+      if (Math.abs(ct - compensatedT) > ytDriftThreshold) {
         ytPlayer.seekTo(compensatedT, true);
       }
-      if (!isStale) {
-        if (p && ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING) ytPlayer.playVideo();
-        else if (!p && ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
-      }
+      if (p && ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING) ytPlayer.playVideo();
+      else if (!p && ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
     } else {
       pendingState = { t, p, _seq };
     }
     return;
   }
   const diff = Math.abs(video.currentTime - compensatedT);
-  var driftThreshold = Math.max(1, 1 + (_estRTT > 400 ? 0.5 : 0));
+  var driftThreshold = Math.max(1, 0.8 + _estRTT / 500);
+  var speedSyncFloor = 0.3;
   if (diff > driftThreshold && video.duration && !video.seeking && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+    if (_speedSyncActive) {
+      clearTimeout(_speedSyncTimeout);
+      video.playbackRate = 1.0;
+      _speedSyncActive = false;
+    }
     if (Math.abs(compensatedT - _lastSyncTargetT) < 0.5) {
     } else {
       _lastSyncTargetT = compensatedT;
       _lastSyncTime = Date.now();
       video.currentTime = compensatedT;
     }
+  } else if (diff > speedSyncFloor && diff <= driftThreshold && video.duration && !video.seeking) {
+    var signedDrift = video.currentTime - compensatedT;
+    applySpeedToSync(-signedDrift);
+  } else if (_speedSyncActive && diff <= speedSyncFloor) {
+    clearTimeout(_speedSyncTimeout);
+    video.playbackRate = 1.0;
+    _speedSyncActive = false;
   }
-  if (!isStale && video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+  if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
     if (p && video.paused) video.play().catch(function() {});
     else if (!p && !video.paused) video.pause();
   }
@@ -2695,17 +2670,15 @@ socket.on("subtitle-downloaded", function(data) {
 
 socket.on("state", (s) => {
   if (bufMgr.isRebuffering) return;
-  var effectiveT = s.t;
-  if (s.p && s.savedAt) {
-    var elapsedSec = (Date.now() - s.savedAt) / 1000;
-    if (elapsedSec > 0 && elapsedSec < 1800) {
-      effectiveT = s.t + elapsedSec;
-    }
-  }
+  if (!s) return;
+  if (!s.p && s.t === undefined) return;
+  if (s._seq !== undefined && s._seq <= _lastAppliedSeq) return;
+  if (s._seq !== undefined) _lastAppliedSeq = Math.max(_lastAppliedSeq, s._seq);
+  updateClockOffset(s.savedAt);
+  var effectiveT = _compensateViewerTime(s.t, s.savedAt, !s.p);
   if (playerType === "youtube") {
-    if (s._seq !== undefined) _lastAppliedSeq = Math.max(_lastAppliedSeq, s._seq);
     if (ytPlayer && ytPlayer.seekTo && ytPlayer.getCurrentTime) {
-      if (Math.abs(ytPlayer.getCurrentTime() - effectiveT) > 1.5) {
+      if (Math.abs(ytPlayer.getCurrentTime() - effectiveT) > 3) {
         ytPlayer.seekTo(effectiveT, true);
       }
       if (s.p) ytPlayer.playVideo();
@@ -2714,19 +2687,17 @@ socket.on("state", (s) => {
       pendingState = { t: effectiveT, p: s.p, _seq: s._seq };
     }
   } else if (playerType !== "youtube") {
-      if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
-        if (s._seq !== undefined) _lastAppliedSeq = Math.max(_lastAppliedSeq, s._seq);
-        if (Math.abs(video.currentTime - effectiveT) > 1.5) {
-          video.currentTime = effectiveT;
-        }
-        if (s.p && video.paused) {
-          var _p = video.play();
-          if (_p && typeof _p.catch === 'function') _p.catch(function() {});
-        } else if (!s.p && !video.paused) {
-          video.pause();
-        }
-        pendingState = null;
-      } else {
+    console.log("[DIAG-" + window._diagTag + "-STATE] p=" + s.p + " t=" + effectiveT + " ct=" + video.currentTime.toFixed(2) + " d=" + video.duration + " rs=" + video.readyState + " ps=" + video.paused + " sk=" + video.seeking + " playerType=" + playerType + " pendingState=" + (pendingState ? "yes" : "no"));
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      if (Math.abs(video.currentTime - effectiveT) > 3) {
+        video.currentTime = effectiveT;
+      }
+      if (s.p && video.paused) {
+        video.play().catch(() => {});
+      } else if (!s.p && !video.paused && Date.now() - _lastSrcSetAt > 3000) {
+        video.pause();
+      }
+    } else {
       pendingState = { t: effectiveT, p: s.p, _seq: s._seq };
     }
   }
@@ -2736,22 +2707,21 @@ socket.on("count", (n) => {
   $("viewerCount").textContent = n;
 });
 
-socket.on("chat", ({ n, m, id, ts }) => {
-  addChatMsg(n, m, id, ts);
+socket.on("chat", ({ n, m, id }) => {
+  _pendingChatMsgs = _pendingChatMsgs || [];
+  _pendingChatMsgs.push({ n, m });
+  if (!_chatScheduled) {
+    _chatScheduled = true;
+    requestAnimationFrame(flushChatMessages);
+  }
 });
 
 socket.on("reset", () => {
-  hideError();
   removeSubtitle();
-  $("resumeOverlay").classList.add("hidden");
   bufMgr.isStartupBuffering = false;
   bufMgr.isRebuffering = false;
   bufMgr.consecutiveStalls = 0;
   clearTimeout(bufMgr._stallTimer);
-  // Exit fullscreen FIRST to avoid white area from detached element
-  var _resetWasFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  if (document.fullscreenElement) document.exitFullscreen();
-  else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
   destroyYTPlayer();
   if (ytInterval) { clearInterval(ytInterval); ytInterval = null; }
   video.pause();
@@ -2770,23 +2740,17 @@ socket.on("reset", () => {
   if (dashPlayer) { try { dashPlayer.reset(); } catch (e) {} dashPlayer = null; }
   if (torrentClient && torrentObj) { torrentObj.destroy(); torrentObj = null; }
   if (window.hlsInstance) { window.hlsInstance.destroy(); window.hlsInstance = null; }
-  if (overlayTimer) { clearInterval(overlayTimer); overlayTimer = null; }
-  if (_syncWatchdogTimer) { clearInterval(_syncWatchdogTimer); _syncWatchdogTimer = null; }
-  if (syncTimer) { if (syncTimer.terminate) syncTimer.terminate(); else clearInterval(syncTimer); syncTimer = null; }
   pendingState = null;
-  _lastAppliedSeq = -1;
-  _pendingHostPlay = false;
   ytJustLoaded = false;
   localSeek = false;
   playerType = null;
   directPlaying = false;
-  $("controls").classList.remove("show");
+  $("controls").classList.remove("show","viewer");
   $("controls").classList.add("hidden");
-  setTimeout(function() { $("playerArea").classList.add("hidden"); }, _resetWasFS ? 400 : 0);
+  $("playerArea").classList.add("hidden");
   $("youtubePlayer").classList.add("hidden");
   $("directIframe").classList.add("hidden");
   $("directIframe").src = "";
-  $("directClickBlocker").classList.add("hidden");
   video.classList.remove("hidden");
   $("playBtn").classList.remove("hidden");
   $("seekbar").classList.remove("hidden");
@@ -2797,9 +2761,10 @@ socket.on("reset", () => {
   $("changeBtn").classList.add("hidden");
 });
 
-socket.on("yt-sync", ({ t, _seq, savedAt }) => {
-  if (_seq !== undefined) _lastAppliedSeq = Math.max(_lastAppliedSeq, _seq);
-  var _compT = savedAt ? t + (Date.now() - savedAt) / 1000 : t;
+socket.on("yt-sync", ({ t, savedAt }) => {
+  if (!playerType) return;
+  updateClockOffset(savedAt);
+  var _compT = _compensateViewerTime(t, savedAt, false);
   pendingState = { t: _compT, p: true };
   $("waitOverlay").classList.add("hidden");
   if (playerType === "youtube" && ytPlayer && ytPlayer.seekTo) {
@@ -2810,12 +2775,9 @@ socket.on("yt-sync", ({ t, _seq, savedAt }) => {
 });
 
 socket.on("end", () => {
-  $("resumeOverlay").classList.add("hidden");
-  video.pause();
-  if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
   toast("Host left. Room closed.");
   roomCode = null;
-  isHost = false; window.isHost = false;
+  isHost = false;
   setTimeout(() => {
     $("room").classList.add("hidden");
     $("landing").classList.remove("hidden");
@@ -2903,37 +2865,72 @@ function finalizeBlob() {
 }
 
 // ==================== CHAT ====================
-let _lastChatTime = 0;
 function sendChat() {
-  const now = Date.now();
-  if (now - _lastChatTime < 300) return;
   const input = $("chatInput");
   const msg = input.value.trim();
   if (!msg) return;
-  _lastChatTime = now;
   socket.emit("chat", { n: myName, m: msg });
   input.value = "";
   input.focus();
 }
 
-let _chatDedupIds = [];
-function addChatMsg(name, msg, id, ts) {
-  if (id && _chatDedupIds.includes(id)) return;
-  if (id) { _chatDedupIds.push(id); if (_chatDedupIds.length > 50) _chatDedupIds.shift(); }
+function addChatMsg(name, msg) {
   const el = document.createElement("div");
   el.className = "msg";
-  const t = ts ? new Date(ts) : new Date();
-  el.innerHTML =
-    `<span class="name" style="color:${nameColor(name)}">${esc(name)}</span>` +
-    `<span class="text">${esc(msg)}</span>` +
-    `<span class="time">${t.getHours().toString().padStart(2, "0")}:${t.getMinutes().toString().padStart(2, "0")}</span>`;
-  $("chatMessages").appendChild(el);
-  $("chatMessages").scrollTop = $("chatMessages").scrollHeight;
-  const fsMsgs = $("fsChatMessages");
+  const nameSpan = document.createElement("span");
+  nameSpan.className = "name";
+  nameSpan.style.color = nameColor(name);
+  nameSpan.textContent = name;
+  const textSpan = document.createElement("span");
+  textSpan.className = "text";
+  textSpan.textContent = msg;
+  const timeSpan = document.createElement("span");
+  timeSpan.className = "time";
+  const t = new Date();
+  timeSpan.textContent = t.getHours().toString().padStart(2, "0") + ":" + t.getMinutes().toString().padStart(2, "0");
+  el.appendChild(nameSpan);
+  el.appendChild(textSpan);
+  el.appendChild(timeSpan);
+  var container = $("chatMessages");
+  container.appendChild(el);
+  while (container.children.length > 200) container.removeChild(container.firstChild);
+  var fsMsgs = $("fsChatMessages");
   if (fsMsgs && fsMsgs.parentElement.classList.contains("show")) {
-    fsMsgs.appendChild(el.cloneNode(true));
-    fsMsgs.scrollTop = fsMsgs.scrollHeight;
+    var clone = el.cloneNode(true);
+    fsMsgs.appendChild(clone);
+    while (fsMsgs.children.length > 200) fsMsgs.removeChild(fsMsgs.firstChild);
   }
+}
+
+function flushChatMessages() {
+  _chatScheduled = false;
+  var q = _pendingChatMsgs;
+  _pendingChatMsgs = [];
+  var batch = q.splice(0, 20);
+  for (var i = 0; i < batch.length; i++) {
+    addChatMsg(batch[i].n, batch[i].m);
+  }
+  if (q.length > 0) {
+    _pendingChatMsgs = q.concat(_pendingChatMsgs);
+    _chatScheduled = true;
+    requestAnimationFrame(flushChatMessages);
+  } else {
+    scheduleChatScroll();
+  }
+}
+
+function scheduleChatScroll() {
+  if (_scrollScheduled) return;
+  _scrollScheduled = true;
+  requestAnimationFrame(function() {
+    _scrollScheduled = false;
+    var container = $("chatMessages");
+    container.scrollTop = container.scrollHeight;
+    var fsMsgs = $("fsChatMessages");
+    if (fsMsgs && fsMsgs.parentElement.classList.contains("show")) {
+      fsMsgs.scrollTop = fsMsgs.scrollHeight;
+    }
+  });
 }
 
 function nameColor(name) {
@@ -2971,24 +2968,24 @@ function toggleFsChat() {
   const isOpen = panel.classList.toggle("show");
   if (isOpen) {
     const msgs = $("fsChatMessages");
-    if (msgs.children.length === 0) {
-      const src = $("chatMessages");
-      for (let i = 0; i < src.children.length; i++) {
-        msgs.appendChild(src.children[i].cloneNode(true));
-      }
+    msgs.innerHTML = "";
+    const src = $("chatMessages");
+    for (let i = 0; i < src.children.length; i++) {
+      msgs.appendChild(src.children[i].cloneNode(true));
     }
     msgs.scrollTop = msgs.scrollHeight;
+    clearTimeout(_fsControlsTimer);
+    $("controls").classList.remove("show");
     $("fsChatInput").focus();
+  } else {
+    resetFsControlsTimer();
   }
 }
 
 function sendFsChat() {
-  const now = Date.now();
-  if (now - _lastChatTime < 300) return;
   const input = $("fsChatInput");
   const msg = input.value.trim();
   if (!msg) return;
-  _lastChatTime = now;
   socket.emit("chat", { n: myName, m: msg });
   input.value = "";
   input.focus();
@@ -3004,6 +3001,12 @@ function toast(msg, duration) {
   if (duration !== 0) {
     toastTimer = setTimeout(() => el.classList.remove("show"), duration || 3000);
   }
+}
+
+function hideToast() {
+  const el = $("toast");
+  el.classList.remove("show");
+  clearTimeout(toastTimer);
 }
 
 // Mobile keyboard handling via visualViewport
@@ -3024,13 +3027,9 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener("scroll", adjustForKeyboard);
 }
 
-// Diagnostic state logger removed from production
 
 // Auto-join from URL (with PS2 host reclaim)
 window.addEventListener("DOMContentLoaded", () => {
-  // Restore saved Stremio tunnel URL into input
-  var _savedTunnel = getStremioTunnel();
-  if (_savedTunnel && $("stremioTunnelInput")) { $("stremioTunnelInput").value = _savedTunnel; }
   const p = new URLSearchParams(window.location.search);
   const c = p.get("join");
   if (c) {
@@ -3044,11 +3043,15 @@ window.addEventListener("DOMContentLoaded", () => {
       roomCode = code;
       myName = savedName || "Host";
       $("joinName").value = myName;
-      var doReclaim = function() { socket.off("connect", doReclaim); reclaimHost(token); };
+      var doReclaim = function() { reclaimHost(token); };
       if (connected) {
         doReclaim();
       } else {
         socket.on("connect", doReclaim);
+        setTimeout(function() {
+          socket.off("connect", doReclaim);
+          if (!connected) toast("Connection timeout. Please try again.");
+        }, 15000);
       }
     } else {
       $("joinName").value = "Viewer";
@@ -3057,10 +3060,88 @@ window.addEventListener("DOMContentLoaded", () => {
       } else {
         const autoJoin = () => { socket.off("connect", autoJoin); joinRoom(); };
         socket.on("connect", autoJoin);
+        setTimeout(function() {
+          socket.off("connect", autoJoin);
+          if (!connected) toast("Connection timeout. Please try again.");
+        }, 15000);
       }
     }
   }
 });
+
+(function(){
+  var bg = document.getElementById('anime-background');
+  if (!bg) return;
+  for (var i = 0; i < 100; i++) {
+    var s = document.createElement('div');
+    s.className = i < 10 ? 'star star-bright' : 'star';
+    s.style.left = Math.random() * 100 + '%';
+    s.style.top = Math.random() * 100 + '%';
+    var d = Math.random() * 6 + 's';
+    s.style.animationDelay = Math.random() * 5 + 's';
+    s.style.animationDuration = d;
+    s.style.width = s.style.height = (i < 10 ? Math.random() * 2 + 2 : Math.random() * 2 + 0.8) + 'px';
+    bg.appendChild(s);
+  }
+  var ss = document.createElement('div');
+  ss.className = 'shooting-star';
+  ss.style.top = Math.random() * 30 + '%';
+  ss.style.left = Math.random() * 40 + 50 + '%';
+  ss.style.animationDelay = Math.random() * 8 + 's';
+  bg.appendChild(ss);
+  [ [300,120,15,55,0], [400,150,55,70,-20], [250,100,75,65,-40] ].forEach(function(c){
+    var el = document.createElement('div');
+    el.className = 'cloud';
+    el.style.width = c[0] + 'px';
+    el.style.height = c[1] + 'px';
+    el.style.top = c[2] + '%';
+    el.style.animationDuration = c[3] + 's';
+    el.style.animationDelay = c[4] + 's';
+    bg.appendChild(el);
+  });
+})();
+
+// GSAP ScrollTrigger landing animation (Image Zoom — YzbPYMx)
+try {
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && typeof gsap !== 'undefined') {
+    gsap.registerPlugin(ScrollTrigger);
+    var stgs = { trigger: '.wrapper', start: 'top top', end: '+=80%', pin: true, scrub: true };
+    function safeScale(v) { return isFinite(v) && v > 0 ? v : 1 }
+    function initZoom() {
+      var wrap = document.querySelector('.wrapper');
+      if (!wrap || wrap._gsapInited) return;
+      wrap._gsapInited = true;
+      var mm = gsap.matchMedia();
+      mm.add('(min-width: 769px)', function() {
+        gsap.timeline({ scrollTrigger: stgs })
+          .to('.landing-graphic', { scale: safeScale(2.5), z: 400, transformOrigin: 'center center', ease: 'power1.inOut' })
+          .from('#anime-background', { scale: safeScale(0.92), transformOrigin: 'center center', ease: 'power1.inOut' }, '<')
+          .to('.hero-title', { opacity: 0.7, y: -18, scale: 0.96, ease: 'power1.inOut' }, '<')
+          .to('.hero-tagline', { opacity: 0.5, y: -8, ease: 'power1.inOut' }, '<')
+          .to('.hero-forms', { opacity: 0.4, y: -6, ease: 'power1.inOut' }, '<');
+      });
+      mm.add('(max-width: 768px)', function() {
+        gsap.timeline({ scrollTrigger: stgs })
+          .to('.landing-graphic', { scale: safeScale(2), z: 200, transformOrigin: 'center center', ease: 'power1.inOut' })
+          .from('#anime-background', { scale: safeScale(0.95), transformOrigin: 'center center', ease: 'power1.inOut' }, '<')
+          .to('.hero-title', { opacity: 0.8, y: -12, scale: 0.97, ease: 'power1.inOut' }, '<')
+          .to('.hero-tagline', { opacity: 0.6, y: -6, ease: 'power1.inOut' }, '<');
+      });
+      gsap.set('.feature-item', { y: 60, opacity: 0 });
+      gsap.to('.feature-item', {
+        scrollTrigger: { trigger: '.landing-features', start: 'top 85%', once: true },
+        y: 0, opacity: 1, duration: 0.7, stagger: 0.12, ease: 'power2.out'
+      });
+    }
+    if (document.readyState === 'complete') { initZoom() } else { window.addEventListener('load', initZoom) }
+    document.fonts && document.fonts.ready && document.fonts.ready.then(function(){ ScrollTrigger.refresh() });
+    var _rs = ScrollTrigger.refresh.bind(ScrollTrigger);
+    ScrollTrigger.refresh = function() { try { _rs() } catch(e) {} };
+  }
+} catch(e) {}
+</script>
+<script>
+document.querySelectorAll('#landingBg, #roomBg').forEach(function(v){ if(v) v.playbackRate = 0.50; });
 </script>
 </body>
 </html>
