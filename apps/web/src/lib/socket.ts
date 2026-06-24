@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 
 let syncSocket: Socket | null = null;
 let webrtcSocket: Socket | null = null;
+let chatSocket: Socket | null = null;
 
 export function getSyncSocket(token?: string): Socket {
   if (!syncSocket) {
@@ -47,6 +48,32 @@ export function disconnectSync() {
   if (syncSocket) {
     syncSocket.disconnect();
     syncSocket = null;
+  }
+}
+
+export function getChatSocket(token?: string): Socket {
+  if (!chatSocket) {
+    const baseUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:4000';
+    chatSocket = io(`${baseUrl}/chat`, {
+      transports: ['websocket', 'polling'],
+      auth: { token },
+      autoConnect: false,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+    });
+  }
+  if (token && !chatSocket.connected) {
+    chatSocket.auth = { token };
+  }
+  return chatSocket;
+}
+
+export function disconnectChat() {
+  if (chatSocket) {
+    chatSocket.disconnect();
+    chatSocket = null;
   }
 }
 

@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { I18nProvider } from '@/lib/i18n';
 import { Toaster } from 'sonner';
+import AnimatedBackground from '@/components/AnimatedBackground';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           <QueryProvider>
             <I18nProvider>
+              <AnimatedBackground />
               {children}
             </I18nProvider>
             <Toaster
@@ -38,9 +40,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               theme="dark"
               toastOptions={{
                 style: {
-                  background: 'hsl(222.2 84% 4.9%)',
-                  border: '1px solid hsl(217.2 32.6% 17.5%)',
-                  color: 'hsl(210 40% 98%)',
+                  background: 'oklch(0.208 0.042 265.755)',
+                  border: '1px solid oklch(1 0 0 / 10%)',
+                  color: 'oklch(0.984 0.003 247.858)',
                 },
               }}
             />

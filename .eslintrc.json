@@ -1,0 +1,109 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2022": true,
+    "commonjs": true
+  },
+  "globals": {
+    "io": "readonly",
+    "Hls": "readonly",
+    "dashjs": "readonly",
+    "WebTorrent": "readonly",
+    "YT": "readonly",
+    "gsap": "readonly",
+    "ScrollTrigger": "readonly",
+    "MediaSource": "readonly"
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "script"
+  },
+  "rules": {
+    "no-undef": "error",
+    "no-unused-vars": ["warn", { "args": "none", "varsIgnorePattern": "^_" }],
+    "no-cond-assign": "error",
+    "no-constant-condition": "warn",
+    "no-dupe-args": "error",
+    "no-dupe-keys": "error",
+    "no-duplicate-case": "error",
+    "no-empty": ["warn", { "allowEmptyCatch": true }],
+    "no-extra-semi": "warn",
+    "no-func-assign": "error",
+    "no-import-assign": "error",
+    "no-irregular-whitespace": "warn",
+    "no-loss-of-precision": "warn",
+    "no-obj-calls": "error",
+    "no-prototype-builtins": "warn",
+    "no-sparse-arrays": "warn",
+    "no-unexpected-multiline": "warn",
+    "no-unsafe-finally": "error",
+    "no-unsafe-optional-chaining": "warn",
+    "use-isnan": "error",
+    "valid-typeof": "error",
+    "curly": ["warn", "multi-line"],
+    "dot-location": ["warn", "property"],
+    "eqeqeq": ["warn", "smart"],
+    "no-caller": "error",
+    "no-else-return": "warn",
+    "no-extend-native": "error",
+    "no-floating-decimal": "warn",
+    "no-implied-eval": "error",
+    "no-lone-blocks": "warn",
+    "no-multi-spaces": "warn",
+    "no-new": "warn",
+    "no-new-func": "error",
+    "no-new-wrappers": "error",
+    "no-octal": "error",
+    "no-proto": "error",
+    "no-return-assign": "warn",
+    "no-self-compare": "error",
+    "no-sequences": "error",
+    "no-throw-literal": "error",
+    "no-unused-expressions": "warn",
+    "no-useless-call": "warn",
+    "no-useless-concat": "warn",
+    "no-useless-escape": "warn",
+    "no-void": "error",
+    "no-with": "error",
+    "prefer-promise-reject-errors": "warn",
+    "wrap-iife": ["warn", "inside"],
+    "no-shadow-restricted-names": "error",
+    "no-undef-init": "warn",
+    "no-use-before-define": ["warn", { "functions": false, "classes": false }],
+    "brace-style": ["warn", "1tbs"],
+    "comma-dangle": ["warn", "always-multiline"],
+    "comma-spacing": "warn",
+    "eol-last": "warn",
+    "indent": ["warn", 2, { "SwitchCase": 1 }],
+    "keyword-spacing": "warn",
+    "new-cap": ["warn", { "newIsCap": true }],
+    "no-mixed-spaces-and-tabs": "warn",
+    "no-trailing-spaces": "warn",
+    "semi": ["warn", "always"],
+    "semi-spacing": "warn",
+    "space-before-blocks": "warn",
+    "space-infix-ops": "warn",
+    "space-unary-ops": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["state.js", "player.js", "ui.js", "socket.js"],
+      "rules": {
+        "no-undef": "off",
+        "no-unused-vars": ["warn", { "args": "none", "varsIgnorePattern": "^_" }]
+      }
+    },
+    {
+      "files": ["_final-test.js", "regression-test.js", "regression-test-port3456.js", "baseline-test.js"],
+      "env": { "node": true, "mocha": true },
+      "rules": {
+        "no-undef": "off",
+        "no-unused-vars": "off",
+        "no-use-before-define": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["node_modules/", "apps/", "packages/", "dist/", "*.min.js"]
+}

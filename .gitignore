@@ -10,3 +10,36 @@ coverage/
 *.tsbuildinfo
 uploads/*
 !uploads/.gitkeep
+
+# Server run artifacts
+server.err
+server_out.txt
+server_err.txt
+server_pid.txt
+server-*.log
+server-crash.log
+
+# Test media (large binaries)
+long_test.mp4
+test-video.mp4
+test-direct*.mp4
+
+# One-off diagnostic scripts (not part of the app)
+observe*.js
+diag-*.js
+symptom-investigation.js
+realworld-investigation.js
+check_advance.js
+runtime-verify.js
+realtime-verify.js
+validate-repro.js
+validate-final.js
+regression-ps1-full.js
+test-direct*.js
+test-real-browser*.js
+test-ps1-validate.js
+test-ps2-validate.js
+test-ps3-validate.js
+
+# Backup / summary docs
+PS1-BACKUP-SUMMARY.md

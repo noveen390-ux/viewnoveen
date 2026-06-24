@@ -52,13 +52,13 @@ export default function FriendsPage() {
     <div className="h-full overflow-y-auto scrollbar-thin">
       <div className="max-w-4xl mx-auto p-6">
         <div className="flex items-center gap-3 mb-6">
-          <Users className="w-6 h-6 text-brand-400" />
-          <h1 className="text-2xl font-bold text-white">Friends</h1>
+          <Users className="w-6 h-6 text-primary" />
+          <h1 className="text-2xl font-bold text-foreground">Friends</h1>
         </div>
 
-        <div className="flex gap-2 mb-6 border-b border-surface-800">
+        <div className="flex gap-2 mb-6 border-b border-border">
           {[
-            { id: 'friends', label: `All Friends (${friends?.total || 0})` },
+            { id: 'friends', label: `All Friends (${(friends?.data as any)?.total ?? friends?.data?.length ?? 0})` },
             { id: 'requests', label: `Requests (${requests?.data?.length || 0})` },
             { id: 'add', label: 'Add Friend' },
           ].map((t) => (
@@ -68,8 +68,8 @@ export default function FriendsPage() {
               className={cn(
                 'px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-[1px]',
                 tab === t.id
-                  ? 'text-brand-400 border-brand-400'
-                  : 'text-surface-400 hover:text-white border-transparent',
+                  ? 'text-primary border-primary'
+                  : 'text-muted-foreground hover:text-foreground border-transparent',
               )}
             >
               {t.label}
@@ -80,17 +80,17 @@ export default function FriendsPage() {
         {tab === 'add' && (
           <div className="space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by username..."
-                className="w-full bg-surface-800 border border-surface-700 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder:text-surface-500 focus:outline-none focus:border-brand-500"
+                className="w-full rounded-md border border-input bg-background pl-10 pr-4 py-2.5 text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
-            <div className="text-center py-12 text-surface-500">
-              <UserPlus className="w-16 h-16 mx-auto mb-4 text-surface-600" />
+            <div className="text-center py-12 text-muted-foreground">
+              <UserPlus className="w-16 h-16 mx-auto mb-4 text-muted-foreground/60" />
               <p>Search for users to add as friends</p>
             </div>
           </div>
@@ -99,30 +99,30 @@ export default function FriendsPage() {
         {tab === 'requests' && (
           <div className="space-y-2">
             {requests?.data?.length ? requests.data.map((req: any) => (
-              <div key={req.id} className="bg-surface-900/50 border border-surface-800 rounded-lg p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-brand-600 flex items-center justify-center text-white font-medium">
+              <div key={req.id} className="surface-card p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
                   {req.user.displayName?.charAt(0)}
                 </div>
                 <div className="flex-1">
-                  <p className="text-white font-medium">{req.user.displayName}</p>
-                  <p className="text-xs text-surface-400">@{req.user.username}</p>
+                  <p className="text-foreground font-medium">{req.user.displayName}</p>
+                  <p className="text-xs text-muted-foreground">@{req.user.username}</p>
                 </div>
                 <button
                   onClick={() => acceptMutation.mutate(req.userId)}
-                  className="bg-green-600 hover:bg-green-500 text-white p-2 rounded-lg transition-colors"
+                  className="bg-success text-success-foreground p-2 rounded-lg transition-colors hover:opacity-90"
                 >
                   <Check size={18} />
                 </button>
                 <button
                   onClick={() => rejectMutation.mutate(req.userId)}
-                  className="bg-red-600/20 hover:bg-red-600/30 text-red-400 p-2 rounded-lg transition-colors"
+                  className="bg-destructive/20 hover:bg-destructive/30 text-destructive p-2 rounded-lg transition-colors"
                 >
                   <X size={18} />
                 </button>
               </div>
             )) : (
-              <div className="text-center py-12 text-surface-500">
-                <Clock className="w-16 h-16 mx-auto mb-4 text-surface-600" />
+              <div className="text-center py-12 text-muted-foreground">
+                <Clock className="w-16 h-16 mx-auto mb-4 text-muted-foreground/60" />
                 <p>No pending friend requests</p>
               </div>
             )}
@@ -132,7 +132,7 @@ export default function FriendsPage() {
         {tab === 'friends' && (
           <div className="space-y-2">
             {friendsLoading ? (
-              <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-surface-400" /></div>
+              <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
             ) : friends?.data?.length ? (
               friends.data.map((f: any, i: number) => (
                 <motion.div
@@ -140,32 +140,32 @@ export default function FriendsPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03 }}
-                  className="bg-surface-900/50 border border-surface-800 rounded-lg p-3 flex items-center gap-3"
+                  className="surface-card p-3 flex items-center gap-3"
                 >
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-brand-600 flex items-center justify-center text-white font-medium">
+                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
                       {f.friend.displayName?.charAt(0)}
                     </div>
                     <div className={cn(
-                      'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-surface-900',
-                      f.friend.isOnline ? 'bg-green-500' : 'bg-surface-600',
+                      'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background',
+                      f.friend.isOnline ? 'bg-success' : 'bg-muted-foreground',
                     )} />
                   </div>
                   <div className="flex-1">
-                    <p className="text-white font-medium">{f.friend.displayName}</p>
-                    <p className="text-xs text-surface-400">@{f.friend.username}</p>
+                    <p className="text-foreground font-medium">{f.friend.displayName}</p>
+                    <p className="text-xs text-muted-foreground">@{f.friend.username}</p>
                   </div>
                   <span className={cn(
                     'text-xs px-2 py-1 rounded-full',
-                    f.friend.isOnline ? 'bg-green-600/20 text-green-400' : 'bg-surface-700 text-surface-400',
+                    f.friend.isOnline ? 'bg-success/20 text-success' : 'bg-muted text-muted-foreground',
                   )}>
                     {f.friend.isOnline ? 'Online' : 'Offline'}
                   </span>
                 </motion.div>
               ))
             ) : (
-              <div className="text-center py-12 text-surface-500">
-                <Users className="w-16 h-16 mx-auto mb-4 text-surface-600" />
+              <div className="text-center py-12 text-muted-foreground">
+                <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground/60" />
                 <p>No friends yet</p>
                 <p className="text-sm">Search for users to add</p>
               </div>

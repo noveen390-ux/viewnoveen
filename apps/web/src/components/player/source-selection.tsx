@@ -42,13 +42,13 @@ export function SourceSelection({ onSelectDirect, onSelectYoutube, onSelectDrive
   ];
 
   return (
-    <div className="h-full flex items-center justify-center bg-surface-950">
+    <div className="h-full flex items-center justify-center bg-background">
       <div className="text-center max-w-lg mx-auto px-6">
-        <div className="w-16 h-16 rounded-2xl bg-surface-800 flex items-center justify-center mx-auto mb-4">
-          <Film className="w-8 h-8 text-brand-400" />
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+          <Film className="w-8 h-8 text-primary" />
         </div>
-        <p className="text-lg font-medium text-white mb-1">Choose a source</p>
-        <p className="text-sm text-surface-400 mb-8">
+        <p className="text-lg font-medium text-foreground mb-1">Choose a source</p>
+        <p className="text-sm text-muted-foreground mb-8">
           Select where you want to play media from
         </p>
         <div className="grid grid-cols-2 gap-3">
@@ -56,13 +56,13 @@ export function SourceSelection({ onSelectDirect, onSelectYoutube, onSelectDrive
             <button
               key={source.id}
               onClick={source.onClick}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-surface-800 bg-surface-900 hover:border-brand-500/50 hover:bg-surface-800 cursor-pointer transition-colors"
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-surface hover:border-primary/50 hover:bg-muted cursor-pointer transition-colors"
             >
-              <div className="w-10 h-10 rounded-lg bg-surface-800 flex items-center justify-center">
-                <source.icon className="w-5 h-5 text-surface-300" />
+              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                <source.icon className="w-5 h-5 text-muted-foreground" />
               </div>
-              <span className="text-sm font-medium text-white">{source.label}</span>
-              <span className="text-xs text-surface-500">{source.description}</span>
+              <span className="text-sm font-medium text-foreground">{source.label}</span>
+              <span className="text-xs text-muted-foreground">{source.description}</span>
             </button>
           ))}
         </div>

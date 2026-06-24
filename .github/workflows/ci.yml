@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install Chromium dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ca-certificates fonts-liberation \
+            libasound2 libatk-bridge2.0-0 libatk1.0-0 \
+            libcups2 libdbus-1-3 libdrm2 libgbm1 \
+            libgtk-3-0 libnspr4 libnss3 libu2f-udev \
+            libvulkan1 libxcomposite1 libxdamage1 \
+            libxfixes3 libxkbcommon0 libxrandr2 \
+            xdg-utils
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        continue-on-error: true
+        run: npm run lint:check 2>&1 || echo "Lint warnings found (non-blocking)"
+
+      - name: Start server & run tests
+        run: |
+          node server.js &
+          SERVER_PID=$!
+          sleep 3
+
+          echo "=== Regression Tests ==="
+          node regression-test.js
+          REGRESSION_EXIT=$?
+
+          echo "=== Final Tests ==="
+          node _final-test.js
+          FINAL_EXIT=$?
+
+          kill $SERVER_PID 2>/dev/null || true
+
+          if [ $REGRESSION_EXIT -ne 0 ] || [ $FINAL_EXIT -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Upload server logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs-node${{ matrix.node-version }}
+          path: |
+            server.log
+            server.err
+            server-*.log

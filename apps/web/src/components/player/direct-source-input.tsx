@@ -28,7 +28,7 @@ export function DirectSourceInput({ onBack, onPlay }: DirectSourceInputProps) {
       roomStore.setVideo(null);
       if (socket?.connected) {
         socket.emit('sync:action', {
-          type: 'direct_media_end',
+          type: 'media_end',
           roomId,
           data: {},
         });
@@ -82,21 +82,21 @@ export function DirectSourceInput({ onBack, onPlay }: DirectSourceInputProps) {
   };
 
   return (
-    <div className="h-full flex items-center justify-center bg-surface-950">
+    <div className="h-full flex items-center justify-center bg-background">
       <div className="text-center max-w-lg mx-auto px-6 w-full">
         <button
           onClick={handleBack}
-          className="flex items-center gap-1.5 text-surface-400 hover:text-white mb-6 transition-colors"
+          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft size={16} />
           <span className="text-sm">Back to sources</span>
         </button>
 
-        <div className="w-16 h-16 rounded-2xl bg-surface-800 flex items-center justify-center mx-auto mb-4">
-          <Link className="w-8 h-8 text-brand-400" />
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+          <Link className="w-8 h-8 text-primary" />
         </div>
-        <p className="text-lg font-medium text-white mb-1">Direct URL</p>
-        <p className="text-sm text-surface-400 mb-6">
+        <p className="text-lg font-medium text-foreground mb-1">Direct URL</p>
+        <p className="text-sm text-muted-foreground mb-6">
           Paste a direct link to a video file
         </p>
 
@@ -106,20 +106,20 @@ export function DirectSourceInput({ onBack, onPlay }: DirectSourceInputProps) {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://example.com/video.mp4"
-            className="flex-1 bg-surface-800 border border-surface-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-surface-500 focus:outline-none focus:border-brand-500 transition-colors"
+            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring transition-colors"
             onKeyDown={(e) => e.key === 'Enter' && handlePlay()}
           />
           <button
             onClick={handlePlay}
             disabled={loading || !url.trim()}
-            className="flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-1.5 bg-primary hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
           >
             <Play size={16} />
             {loading ? 'Loading...' : 'Play'}
           </button>
         </div>
 
-        <p className="text-xs text-surface-600 mt-4">
+        <p className="text-xs text-muted-foreground mt-4">
           Supports MP4, WebM, MOV, and other direct video URLs
         </p>
       </div>

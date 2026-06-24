@@ -18,15 +18,15 @@ export default function MusicPage() {
       <div className="max-w-6xl mx-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Music className="w-6 h-6 text-brand-400" />
+            <Music className="w-6 h-6 text-primary" />
             <div>
-              <h1 className="text-2xl font-bold text-white">Music Sessions</h1>
-              <p className="text-sm text-surface-400">Listen to music together</p>
+              <h1 className="text-2xl font-bold text-foreground">Music Sessions</h1>
+              <p className="text-sm text-muted-foreground">Listen to music together</p>
             </div>
           </div>
           <Link
             href="/rooms/create"
-            className="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
           >
             <Plus size={16} />
             Create Music Room
@@ -34,7 +34,7 @@ export default function MusicPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-surface-400" /></div>
+          <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
         ) : rooms?.data?.length ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {rooms.data.map((room: any, i: number) => (
@@ -46,29 +46,29 @@ export default function MusicPage() {
               >
                 <Link
                   href={`/rooms/${room.id}`}
-                  className="block bg-surface-900/50 border border-surface-800 rounded-xl p-5 hover:border-brand-500/30 transition-all group"
+                  className="block surface-card p-5 hover:border-primary/30 transition-all group"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-brand-600/10 flex items-center justify-center mb-3 group-hover:bg-brand-600/20 transition-colors">
-                    <Music className="w-6 h-6 text-brand-400" />
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
+                    <Music className="w-6 h-6 text-primary" />
                   </div>
-                  <h3 className="text-white font-semibold mb-1">{room.name}</h3>
-                  <p className="text-sm text-surface-400 line-clamp-2 mb-3">
+                  <h3 className="text-foreground font-semibold mb-1">{room.name}</h3>
+                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                     {room.description || 'Music session'}
                   </p>
-                  <div className="flex items-center justify-between text-xs text-surface-500">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <div className="flex items-center gap-1.5">
                       <Users size={14} />
                       <span>{room._count?.participants || 0} listeners</span>
                     </div>
-                    <Play size={14} className="text-brand-400" />
+                    <Play size={14} className="text-primary" />
                   </div>
                 </Link>
               </motion.div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 text-surface-500">
-            <Music className="w-16 h-16 mx-auto mb-4 text-surface-600" />
+          <div className="text-center py-20 text-muted-foreground">
+            <Music className="w-16 h-16 mx-auto mb-4 text-muted-foreground/60" />
             <p className="text-lg font-medium mb-2">No music sessions</p>
             <p className="text-sm">Create a music room and start listening together</p>
           </div>

@@ -19,7 +19,7 @@ const io = new Server(server, {
   allowUpgrades: true,
 });
 
-const PORT = process.env.PORT || process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, "data");
 const ROOMS_FILE = path.join(DATA_DIR, "rooms.json");
 let rooms = {};
@@ -28,6 +28,16 @@ let rooms = {};
 const UPLOADS_DIR = path.join(__dirname, "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 const roomUploads = {}; // roomCode -> { file, uploadedAt }
+const MAX_UPLOADS_PER_ROOM = 3;
+const UPLOAD_SIZE_LIMIT = 5 * 1024 * 1024 * 1024; // 5GB
+const UPLOAD_DIR_SIZE_LIMIT = 50 * 1024 * 1024 * 1024; // 50GB total
+
+let _totalUploadedBytes = 0;
+
+function isHostInRoom(socket) {
+  const room = rooms[socket.data.room];
+  return room && room.host === socket.id;
+}
 let _globalChatId = 0;
 
 function ensureDataDir() {
@@ -198,6 +208,36 @@ v.addEventListener('timeupdate',function(){parent.postMessage({type:'vnsync-time
 
 app.use(express.static(__dirname));
 
+// IPTV M3U parser endpoint
+app.get("/api/iptv/m3u", async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ error: "Missing url" });
+  try {
+    const resp = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(15000) });
+    if (!resp.ok) return res.status(502).json({ error: "Failed to fetch M3U: " + resp.status });
+    const text = await resp.text();
+    const channels = [];
+    const lines = text.split("\n");
+    let extinf = null;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("#EXTINF:")) {
+        const tvgName = (trimmed.match(/tvg-name="([^"]*)"/) || [])[1] || "";
+        const groupTitle = (trimmed.match(/group-title="([^"]*)"/) || [])[1] || "Uncategorized";
+        const name = (trimmed.match(/,([^,]*)$/) || [])[1]?.trim() || tvgName;
+        const tvgLogo = (trimmed.match(/tvg-logo="([^"]*)"/) || [])[1] || "";
+        extinf = { name, group: groupTitle, logo: tvgLogo };
+      } else if (trimmed && !trimmed.startsWith("#") && extinf) {
+        channels.push({ ...extinf, url: trimmed });
+        extinf = null;
+      }
+    }
+    res.json({ channels });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Proxy endpoint for Stremio extract URLs that don't work directly in the browser
 //   /proxy?url=...           → streams the video content (single GET with auto redirect)
 //   /proxy?check=1&url=...   → returns JSON metadata (HEAD-based, no body download)
@@ -223,7 +263,9 @@ app.get("/proxy", async (req, res) => {
       for (let i = 0; i < 20; i++) {
         const r = await fetch(current, { method: "HEAD", redirect: "manual", headers });
         const loc = [301, 302, 303, 307, 308].includes(r.status) ? r.headers.get("location") : null;
-        if (loc) { current = new URL(loc, current).href; continue; }
+        if (loc) {
+          current = new URL(loc, current).href; continue;
+        }
         lastRes = r;
         break;
       }
@@ -256,8 +298,11 @@ app.get("/proxy", async (req, res) => {
     if (_isHlsPlaylist) {
       const raw = await upstream.text();
       const wrap = (u) => {
-        try { return "/proxy?url=" + encodeURIComponent(new URL(u, _finalUrl).href); }
-        catch (e) { return u; }
+        try {
+          return "/proxy?url=" + encodeURIComponent(new URL(u, _finalUrl).href);
+        } catch (e) {
+          return u;
+        }
       };
       const rewritten = raw.split("\n").map((line) => {
         const trimmed = line.trim();
@@ -298,26 +343,66 @@ app.post("/upload", (req, res) => {
   const room = req.query.room;
   if (!filename || !room) return res.status(400).json({ error: "Missing filename or room" });
 
+  // Validate room exists
+  if (!rooms[room]) return res.status(404).json({ error: "Room not found" });
+
   const ext = path.extname(filename).toLowerCase();
   if (![".mp4", ".mkv", ".webm", ".mov"].includes(ext)) {
     return res.status(400).json({ error: "Unsupported file type" });
   }
 
+  // Security: validate filename (no path traversal)
+  if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
+    return res.status(400).json({ error: "Invalid filename" });
+  }
+
+  // Rate limit per room
+  const roomUp = roomUploads[room];
+  if (roomUp) {
+    const uploads = Object.keys(roomUploads).filter(k => k.startsWith(room + "_")).length;
+    if (uploads >= MAX_UPLOADS_PER_ROOM) {
+      return res.status(429).json({ error: "Too many uploads for this room" });
+    }
+  }
+
+  // Validate file size from Content-Length header
+  const contentLength = parseInt(req.headers["content-length"] || "0", 10);
+  if (contentLength > UPLOAD_SIZE_LIMIT) {
+    return res.status(413).json({ error: "File too large. Maximum is 5GB." });
+  }
+  if (_totalUploadedBytes + contentLength > UPLOAD_DIR_SIZE_LIMIT) {
+    return res.status(507).json({ error: "Server storage limit reached" });
+  }
+
   const safeName = room + "_" + Date.now() + ext;
   const filePath = path.join(UPLOADS_DIR, safeName);
   const ws = fs.createWriteStream(filePath);
+  let receivedBytes = 0;
 
-  roomUploads[room] = { file: safeName, uploadedAt: Date.now() };
+  roomUploads[room] = roomUploads[room] || [];
+  roomUploads[room].push({ file: safeName, uploadedAt: Date.now() });
 
-  req.on("data", (chunk) => ws.write(chunk));
+  req.on("data", (chunk) => {
+    receivedBytes += chunk.length;
+    if (receivedBytes > UPLOAD_SIZE_LIMIT) {
+      ws.destroy();
+      try {
+        fs.unlinkSync(filePath);
+      } catch (e) {}
+      return res.status(413).json({ error: "File too large" });
+    }
+    ws.write(chunk);
+  });
   req.on("end", () => {
     ws.end();
+    _totalUploadedBytes += receivedBytes;
     res.json({ url: "/video/" + safeName });
   });
   req.on("error", (err) => {
     ws.destroy();
-    try { fs.unlinkSync(filePath); } catch (e) {}
-    delete roomUploads[room];
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {}
     res.status(500).json({ error: err.message });
   });
 });
@@ -332,6 +417,10 @@ app.get("/video/:filename", (req, res) => {
   const fileSize = stat.size;
   const range = req.headers.range;
 
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeMap = { ".mp4": "video/mp4", ".webm": "video/webm", ".mkv": "video/x-matroska", ".mov": "video/quicktime" };
+  const contentType = mimeMap[ext] || "video/mp4";
+
   if (range) {
     const parts = range.replace(/bytes=/, "").split("-");
     const start = parseInt(parts[0], 10);
@@ -342,13 +431,13 @@ app.get("/video/:filename", (req, res) => {
       "Content-Range": `bytes ${start}-${end}/${fileSize}`,
       "Accept-Ranges": "bytes",
       "Content-Length": chunkSize,
-      "Content-Type": "video/mp4",
+      "Content-Type": contentType,
     });
     stream.pipe(res);
   } else {
     res.writeHead(200, {
       "Content-Length": fileSize,
-      "Content-Type": "video/mp4",
+      "Content-Type": contentType,
       "Accept-Ranges": "bytes",
     });
     fs.createReadStream(filePath).pipe(res);
@@ -381,9 +470,13 @@ function httpsPost(hostname, path, headers, body) {
       res.on('data', c => data += c);
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          try { resolve(JSON.parse(data)); } catch(e) { resolve(data); }
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            resolve(data);
+          }
         } else {
-          reject(new Error(`OpenSubtitles API error ${res.statusCode}: ${data.slice(0,500)}`));
+          reject(new Error(`OpenSubtitles API error ${res.statusCode}: ${data.slice(0, 500)}`));
         }
       });
     });
@@ -398,7 +491,9 @@ function fetchUrl(url) {
     const mod = url.startsWith('https:') ? https : http;
     const doReq = (u) => {
       mod.get(u, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) { doReq(res.headers.location); return; }
+        if (res.statusCode === 301 || res.statusCode === 302) {
+          doReq(res.headers.location); return;
+        }
         let data = '';
         res.on('data', c => data += c);
         res.on('end', () => resolve(data));
@@ -421,7 +516,9 @@ app.get("/subtitle/:code", (req, res) => {
 function deleteRoomUpload(code) {
   if (roomUploads[code]) {
     const f = path.join(UPLOADS_DIR, roomUploads[code].file);
-    try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch (e) {}
+    try {
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    } catch (e) {}
     delete roomUploads[code];
   }
 }
@@ -511,7 +608,7 @@ io.on("connection", (socket) => {
 
   // Pure echo ack for client-side RTT measurement — no room state, no broadcast, no side effects
   socket.on("ping-rtt", (clientTime, cb) => {
-    if (typeof cb === "function") cb();
+    if (typeof cb === "function") cb(Date.now());
   });
 
   socket.on("play", (t) => {
@@ -527,6 +624,7 @@ io.on("connection", (socket) => {
   socket.on("pause", (t) => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
+      console.log("SERVER pause from host", { ct: t, sid: socket.id.substring(0, 8), code: socket.data.room, hostSid: room.host.substring(0, 8) });
       room._seq = (room._seq || 0) + 1;
       room.state = { p: false, t, _seq: room._seq, savedAt: Date.now() };
       socket.to(socket.data.room).emit("pause", { t, _seq: room._seq, savedAt: room.state.savedAt });
@@ -546,12 +644,20 @@ io.on("connection", (socket) => {
 
   socket.on("proxy-resolve", async (url, opts, cb) => {
     if (!url) return cb({ error: "Missing url" });
-    if (typeof opts === "function") { cb = opts; opts = {}; }
+    if (typeof opts === "function") {
+      cb = opts; opts = {};
+    }
     try {
       const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
       if (opts.referer) headers["Referer"] = opts.referer;
-      else try { headers["Referer"] = new URL(url).origin + "/"; } catch (e) {}
-      try { headers["Origin"] = new URL(url).origin; } catch (e) {}
+      else {
+        try {
+          headers["Referer"] = new URL(url).origin + "/";
+        } catch (e) {}
+      }
+      try {
+        headers["Origin"] = new URL(url).origin;
+      } catch (e) {}
       if (opts.customHeaders) Object.assign(headers, opts.customHeaders);
 
       // Use GET with Range:0-0 for reliable header detection (more robust than HEAD)
@@ -595,9 +701,15 @@ io.on("connection", (socket) => {
           info.isHlsMaster = raw.includes("#EXT-X-STREAM-INF");
           info.playlist = raw.split("\n").map(line => {
             if (line.startsWith("#") || line.trim() === "") return line;
-            try { new URL(line); return line; } catch (e) { return base + line; }
+            try {
+              new URL(line); return line;
+            } catch (e) {
+              return base + line;
+            }
           }).join("\n");
-        } catch (e) { console.error(`[proxy-resolve] playlist error: ${e.message}`); }
+        } catch (e) {
+          console.error(`[proxy-resolve] playlist error: ${e.message}`);
+        }
       }
 
       if (isDash) {
@@ -606,9 +718,15 @@ io.on("connection", (socket) => {
           const raw = await dr.text();
           const base = finalUrl.substring(0, finalUrl.lastIndexOf("/") + 1);
           info.manifest = raw.replace(/(baseURL|media|initialization)="([^"]+)"/gi, (m, attr, val) => {
-            try { new URL(val); return m; } catch (e) { return `${attr}="${base}${val}"`; }
+            try {
+              new URL(val); return m;
+            } catch (e) {
+              return `${attr}="${base}${val}"`;
+            }
           });
-        } catch (e) { console.error(`[proxy-resolve] manifest error: ${e.message}`); }
+        } catch (e) {
+          console.error(`[proxy-resolve] manifest error: ${e.message}`);
+        }
       }
 
       cb(info);
@@ -621,25 +739,33 @@ io.on("connection", (socket) => {
   socket.on("proxy-fetch-url", async (url, cb) => {
     try {
       const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
-      try { headers["Referer"] = new URL(url).origin + "/"; } catch (e) {}
+      try {
+        headers["Referer"] = new URL(url).origin + "/";
+      } catch (e) {}
       const response = await fetch(url, { redirect: "follow", headers });
       const text = await response.text();
       cb({ content: text, url: response.url, contentType: response.headers.get("content-type") || "" });
-    } catch (e) { cb({ error: e.message }); }
+    } catch (e) {
+      cb({ error: e.message });
+    }
   });
 
   async function startProxyFetch(room, roomCode, url, startByte, opts) {
     try {
       const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
-      try { headers["Referer"] = new URL(url).origin + "/"; } catch (e) {}
-      try { headers["Origin"] = new URL(url).origin; } catch (e) {}
+      try {
+        headers["Referer"] = new URL(url).origin + "/";
+      } catch (e) {}
+      try {
+        headers["Origin"] = new URL(url).origin;
+      } catch (e) {}
       if (opts && opts.customHeaders) Object.assign(headers, opts.customHeaders);
 
       if (startByte > 0) headers["Range"] = `bytes=${startByte}-`;
 
       const response = await fetch(url, { redirect: "follow", headers });
 
-      if (response.status !== 200 && response.status !== 206 && response.status !== 304) {
+      if (response.status !== 200 && response.status !== 206) {
         throw new Error("Upstream returned status " + response.status);
       }
 
@@ -779,6 +905,7 @@ io.on("connection", (socket) => {
       socket.join(code);
       room.users[socket.id] = { n: "Host" };
       cb({ ok: true, state: room.state, meta: room.meta, total: room.total, hostToken: room.hostToken });
+      io.to(code).emit("host-recovered", room.state);
       io.to(code).emit("count", Object.keys(room.users).length);
       scheduleSave();
     } else {
@@ -789,8 +916,10 @@ io.on("connection", (socket) => {
   socket.on("sync-state", ({ t, p }) => {
     const room = rooms[socket.data.room];
     if (room && room.host === socket.id) {
-      room.state = { p, t, _seq: room._seq || 0, savedAt: Date.now() };
-      socket.to(socket.data.room).emit("sync-state", { t, p, _seq: room._seq || 0, savedAt: room.state.savedAt });
+      room._seq = (room._seq || 0) + 1;
+      room.state = { p, t, _seq: room._seq, savedAt: Date.now() };
+      socket.to(socket.data.room).emit("sync-state", { t, p, _seq: room._seq, savedAt: room.state.savedAt });
+      scheduleSave();
     }
   });
 
@@ -880,6 +1009,14 @@ io.on("connection", (socket) => {
     } catch (e) {
       socket.emit("subtitle-downloaded", { error: 'Download failed: ' + e.message });
     }
+  });
+
+  // IPTV channel change (host only)
+  socket.on("iptv-channel", ({ url, name, logo }) => {
+    const room = rooms[socket.data.room];
+    if (!room || room.host !== socket.id) return;
+    room.iptvChannel = { url, name, logo, updatedAt: Date.now() };
+    socket.to(socket.data.room).emit("iptv-channel", { url, name, logo });
   });
 
   socket.on("disconnect", () => {

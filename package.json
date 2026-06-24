@@ -13,7 +13,14 @@
     "db:push": "cd packages/database && npx prisma db push",
     "db:migrate": "cd packages/database && npx prisma migrate dev",
     "db:seed": "cd packages/database && npx prisma db seed",
-    "services:all": "turbo run dev --parallel --no-cache"
+    "services:all": "turbo run dev --parallel --no-cache",
+    "test": "node _final-test.js",
+    "test:regression": "node regression-test.js",
+    "test:all": "node regression-test.js && node _final-test.js",
+    "lint:check": "npx eslint --no-eslintrc -c .eslintrc.json --ext .js --ignore-pattern node_modules --ignore-pattern apps --ignore-pattern packages .",
+    "lint:fix": "npx eslint --no-eslintrc -c .eslintrc.json --ext .js --ignore-pattern node_modules --ignore-pattern apps --ignore-pattern packages --fix .",
+    "dev:server": "node server.js",
+    "dev:watch": "npx nodemon --watch . --ext js,html,json --ignore node_modules --ignore apps --ignore packages server.js"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.0.0",

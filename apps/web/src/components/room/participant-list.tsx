@@ -15,63 +15,47 @@ export function ParticipantList() {
   const sorted = host ? [host, ...others] : participants;
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-thin p-3">
-      <div className="flex items-center gap-2 mb-3 text-xs text-surface-400 uppercase tracking-wider">
-        <Users size={14} />
-        <span>{participants.length} Participants</span>
+    <div className="flex flex-col surface-card h-full">
+      <div className="border-b border-border px-4 py-3 text-sm font-semibold">
+        {participants.length} Participants
       </div>
-      <div className="space-y-1">
+      <ul className="max-h-48 space-y-1 overflow-y-auto p-2">
         {sorted.map((participant) => {
           const isMe = participant.userId === user?.id;
           return (
-            <div
+            <li
               key={participant.userId}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors',
-                isMe ? 'bg-brand-600/10' : 'hover:bg-surface-800',
+                'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted',
+                isMe && 'bg-primary/10',
               )}
             >
-              <div className="relative flex-shrink-0">
-                <div className="w-9 h-9 rounded-full bg-brand-600 flex items-center justify-center text-white text-sm font-medium">
-                  {participant.displayName?.charAt(0) || 'U'}
-                </div>
-                <div
-                  className={cn(
-                    'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-surface-900',
-                    true ? 'bg-green-500' : 'bg-surface-600',
-                  )}
-                />
-                {participant.isSpeaking && (
-                  <div className="absolute inset-0 rounded-full ring-2 ring-green-400 animate-pulse" />
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-medium flex-shrink-0">
+                {participant.displayName?.charAt(0) || 'U'}
+              </div>
+              <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                <span className="truncate text-foreground">{participant.displayName}</span>
+                {participant.role === 'host' && (
+                  <Crown size={12} className="text-primary flex-shrink-0" />
                 )}
+                {isMe && <span className="text-[10px] text-muted-foreground">(you)</span>}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium text-white truncate">
-                    {participant.displayName}
-                  </span>
-                  {participant.role === 'host' && (
-                    <Crown size={12} className="text-yellow-500 flex-shrink-0" />
-                  )}
-                  {isMe && <span className="text-[10px] text-surface-500">(you)</span>}
-                </div>
-              </div>
-              <div className="flex items-center gap-1 text-surface-500">
+              <div className="flex items-center gap-1 text-muted-foreground">
                 {participant.isMuted ? (
-                  <MicOff size={14} className="text-red-400" />
+                  <MicOff size={14} className="text-destructive" />
                 ) : (
                   <Mic size={14} />
                 )}
                 {participant.isDeafened ? (
-                  <VolumeX size={14} className="text-red-400" />
+                  <VolumeX size={14} className="text-destructive" />
                 ) : (
                   <Headphones size={14} />
                 )}
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 }

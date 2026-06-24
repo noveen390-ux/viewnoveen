@@ -28,9 +28,9 @@ export default function DashboardPage() {
   };
 
   const stats = [
-    { icon: Users, label: 'Friends Online', value: '0', color: 'text-green-400' },
-    { icon: Tv, label: 'Active Rooms', value: recommendations?.data?.length?.toString() || '0', color: 'text-brand-400' },
-    { icon: Clock, label: 'Watch Time', value: '0h', color: 'text-yellow-400' },
+    { icon: Users, label: 'Friends Online', value: '0', color: 'text-success' },
+    { icon: Tv, label: 'Active Rooms', value: recommendations?.data?.length?.toString() || '0', color: 'text-primary' },
+    { icon: Clock, label: 'Watch Time', value: '0h', color: 'text-foreground' },
   ];
 
   return (
@@ -38,10 +38,10 @@ export default function DashboardPage() {
       <div className="max-w-6xl mx-auto p-6">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-foreground">
               Welcome back, {user?.displayName}
             </h1>
-            <p className="text-surface-400 mt-1">What are we watching today?</p>
+            <p className="text-muted-foreground mt-1">What are we watching today?</p>
           </div>
           <div className="flex items-center gap-3">
             <form onSubmit={handleJoinByCode} className="flex items-center gap-2">
@@ -51,18 +51,18 @@ export default function DashboardPage() {
                 onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                 placeholder="Enter room code"
                 maxLength={8}
-                className="w-40 bg-surface-800 border border-surface-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-surface-500 focus:outline-none focus:border-brand-500 uppercase"
+                className="w-40 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring uppercase"
               />
               <button
                 type="submit"
-                className="bg-surface-800 hover:bg-surface-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted"
               >
                 Join
               </button>
             </form>
             <Link
               href="/rooms/create"
-              className="bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
             >
               <Plus size={16} />
               Create Room
@@ -74,13 +74,13 @@ export default function DashboardPage() {
           {stats.map((stat) => (
             <div
               key={stat.label}
-              className="bg-surface-900/50 border border-surface-800 rounded-xl p-4"
+              className="surface-card p-4"
             >
               <div className="flex items-center gap-3">
                 <stat.icon className={cn('w-8 h-8', stat.color)} />
                 <div>
-                  <p className="text-2xl font-bold text-white">{stat.value}</p>
-                  <p className="text-xs text-surface-400">{stat.label}</p>
+                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground">{stat.label}</p>
                 </div>
               </div>
             </div>
@@ -89,15 +89,15 @@ export default function DashboardPage() {
 
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <TrendingUp size={18} className="text-brand-400" />
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <TrendingUp size={18} className="text-primary" />
               Recommended Rooms
             </h2>
           </div>
 
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-surface-400" />
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : recommendations?.data?.length ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -108,22 +108,22 @@ export default function DashboardPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
                   onClick={() => router.push(`/rooms/${room.id}`)}
-                  className="bg-surface-900/50 border border-surface-800 rounded-xl p-4 hover:border-brand-500/30 cursor-pointer transition-all group"
+                  className="surface-card p-4 hover:border-primary/30 cursor-pointer transition-all group"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <h3 className="text-white font-semibold group-hover:text-brand-400 transition-colors">
+                      <h3 className="text-foreground font-semibold group-hover:text-primary transition-colors">
                         {room.name}
                       </h3>
-                      <p className="text-xs text-surface-400 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         by {room.host?.displayName || room.host?.username}
                       </p>
                     </div>
-                    <span className="text-xs bg-surface-800 text-surface-300 px-2 py-1 rounded capitalize">
+                    <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded capitalize">
                       {room.type}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-surface-400 text-sm">
+                  <div className="flex items-center gap-1 text-muted-foreground text-sm">
                     <Users size={14} />
                     <span>{room._count?.participants || 0} watching</span>
                   </div>
@@ -131,12 +131,12 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-surface-900/30 rounded-xl border border-surface-800">
-              <Tv className="w-12 h-12 text-surface-600 mx-auto mb-3" />
-              <p className="text-surface-400">No rooms yet</p>
+            <div className="text-center py-12 border border-border rounded-xl bg-surface/50">
+              <Tv className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">No rooms yet</p>
               <Link
                 href="/rooms/create"
-                className="text-brand-400 hover:text-brand-300 text-sm mt-2 inline-block"
+                className="text-primary hover:text-primary/80 text-sm mt-2 inline-block"
               >
                 Create the first room
               </Link>

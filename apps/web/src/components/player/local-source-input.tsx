@@ -30,7 +30,7 @@ export function LocalSourceInput({ onBack, onPlay }: LocalSourceInputProps) {
       roomsApi.deleteVideo(roomId).catch(() => {});
       roomStore.setVideo(null);
       if (socket?.connected) {
-        socket.emit('sync:action', { type: 'direct_media_end', roomId, data: {} });
+        socket.emit('sync:action', { type: 'media_end', roomId, data: {} });
       }
     }
     onBack();
@@ -64,7 +64,8 @@ export function LocalSourceInput({ onBack, onPlay }: LocalSourceInputProps) {
     setProgress(0);
 
     try {
-      const res = await uploadApi.uploadFile(file);
+      const onProgress = (pct: number) => setProgress(pct);
+      const res = await uploadApi.uploadFile(file, onProgress);
       const videoUrl = res.data.url;
 
       const videoRes = await roomsApi.setVideo(roomId, {
@@ -100,39 +101,39 @@ export function LocalSourceInput({ onBack, onPlay }: LocalSourceInputProps) {
   };
 
   return (
-    <div className="h-full flex items-center justify-center bg-surface-950">
+    <div className="h-full flex items-center justify-center bg-background">
       <div className="text-center max-w-lg mx-auto px-6 w-full">
-        <button onClick={handleBack} className="flex items-center gap-1.5 text-surface-400 hover:text-white mb-6 transition-colors">
+        <button onClick={handleBack} className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground mb-6 transition-colors">
           <ArrowLeft size={16} />
           <span className="text-sm">Back to sources</span>
         </button>
 
-        <div className="w-16 h-16 rounded-2xl bg-surface-800 flex items-center justify-center mx-auto mb-4">
-          <Upload className="w-8 h-8 text-brand-400" />
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+          <Upload className="w-8 h-8 text-primary" />
         </div>
-        <p className="text-lg font-medium text-white mb-1">Local File</p>
-        <p className="text-sm text-surface-400 mb-6">
+        <p className="text-lg font-medium text-foreground mb-1">Local File</p>
+        <p className="text-sm text-muted-foreground mb-6">
           Upload a video file from your device
         </p>
 
         <div
-          className="border-2 border-dashed border-surface-700 rounded-xl p-8 mb-4 cursor-pointer hover:border-brand-500/50 transition-colors"
+          className="border-2 border-dashed border-border rounded-xl p-8 mb-4 cursor-pointer hover:border-primary/50 transition-colors"
           onClick={() => fileInputRef.current?.click()}
         >
           {file ? (
             <div>
-              <p className="text-white font-medium mb-1">{file.name}</p>
-              <p className="text-xs text-surface-400">
+              <p className="text-foreground font-medium mb-1">{file.name}</p>
+              <p className="text-xs text-muted-foreground">
                 {(file.size / (1024 * 1024)).toFixed(1)} MB
               </p>
             </div>
           ) : (
             <div>
-              <Upload className="w-10 h-10 text-surface-500 mx-auto mb-3" />
-              <p className="text-surface-400 text-sm">
-                <span className="text-brand-400 font-medium">Click to select</span> a video file
+              <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">
+                <span className="text-primary font-medium">Click to select</span> a video file
               </p>
-              <p className="text-xs text-surface-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 MP4, MKV, WebM, MOV &bull; Up to 5GB
               </p>
             </div>
@@ -148,20 +149,20 @@ export function LocalSourceInput({ onBack, onPlay }: LocalSourceInputProps) {
 
         {uploading && (
           <div className="mb-4">
-            <div className="h-2 bg-surface-800 rounded-full overflow-hidden">
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-brand-500 rounded-full transition-all duration-300"
+                className="h-full bg-primary rounded-full transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="text-xs text-surface-400 mt-1">Uploading... {progress}%</p>
+            <p className="text-xs text-muted-foreground mt-1">Uploading... {progress}%</p>
           </div>
         )}
 
         <button
           onClick={handleUpload}
           disabled={!file || uploading}
-          className="flex items-center justify-center gap-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors w-full"
+          className="flex items-center justify-center gap-1.5 bg-primary hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground px-6 py-2.5 rounded-lg text-sm font-medium transition-colors w-full"
         >
           <Play size={16} />
           {uploading ? 'Uploading...' : file ? `Play ${file.name}` : 'Select a file first'}

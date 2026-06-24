@@ -110,6 +110,20 @@ export default function AuthPage() {
             </button>
           </form>
 
+          <div className="my-4 flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="h-px flex-1 bg-border" />
+            <span>{t('auth.or')}</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+
+          <button
+            onClick={() => {}}
+            disabled={busy}
+            className="w-full rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
+          >
+            {t('auth.continueGoogle')}
+          </button>
+
           <div className="mt-4 text-center text-xs text-muted-foreground">
             <Link href="/join" className="text-primary hover:underline">
               {t('auth.continueGuest')} &rarr;

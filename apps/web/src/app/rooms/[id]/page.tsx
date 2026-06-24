@@ -6,7 +6,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { roomsApi, chatApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth-store';
 import { useRoomStore } from '@/stores/room-store';
-import { getSyncSocket, getWebRTCSocket } from '@/lib/socket';
+import { getSyncSocket, getWebRTCSocket, disconnectSync } from '@/lib/socket';
 import { VideoPlayer } from '@/components/player/video-player';
 import { SourceSelection } from '@/components/player/source-selection';
 import { DirectSourceInput } from '@/components/player/direct-source-input';
@@ -103,17 +103,25 @@ export default function RoomPage() {
       socket.on('connect', () => {
         setConnected(true);
         socket.emit('join:room', { roomId: id });
+        roomsApi.get(id).then((res) => {
+          if (res.data.video) {
+            roomStore.setVideo(res.data.video);
+            setVideoView('player');
+          }
+        });
       });
 
       socket.on('disconnect', () => {
         setConnected(false);
-        toast.error('Connection lost. Reconnecting...');
       });
 
       socket.on('sync:action', (action: any) => {
-        if (action.type === 'play') roomStore.setVideo({ ...roomStore.video!, isPlaying: true, currentTime: action.data.currentTime } as any);
-        if (action.type === 'pause') roomStore.setVideo({ ...roomStore.video!, isPlaying: false, currentTime: action.data.currentTime } as any);
-        if (action.type === 'seek') roomStore.setVideo({ ...roomStore.video!, currentTime: action.data.currentTime } as any);
+        const currentVideo = roomStore.video;
+        if (!currentVideo) return;
+        if (action.type === 'play') roomStore.setVideo({ ...currentVideo, isPlaying: true, currentTime: action.data.currentTime } as any);
+        if (action.type === 'pause') roomStore.setVideo({ ...currentVideo, isPlaying: false, currentTime: action.data.currentTime } as any);
+        if (action.type === 'seek') roomStore.setVideo({ ...currentVideo, currentTime: action.data.currentTime } as any);
+        if (action.type === 'sync:tick') roomStore.setVideo({ ...currentVideo, currentTime: action.data.currentTime } as any);
         if (action.type === 'video_change' && action.data.videoId) {
           roomsApi.get(id).then((res) => {
             if (res.data.video) {
@@ -122,7 +130,7 @@ export default function RoomPage() {
             }
           });
         }
-        if (action.type === 'direct_media_end') {
+        if (action.type === 'media_end' || action.type === 'direct_media_end') {
           roomStore.setVideo(null);
           setVideoView('source-selection');
         }
@@ -132,11 +140,22 @@ export default function RoomPage() {
         roomStore.setParticipants(participants);
       });
 
+      if (socket.connected) {
+        setConnected(true);
+        socket.emit('join:room', { roomId: id });
+        roomsApi.get(id).then((res) => {
+          if (res.data.video) {
+            roomStore.setVideo(res.data.video);
+            setVideoView('player');
+          }
+        });
+      }
+
       return () => {
         if (socket.connected) {
           socket.emit('leave:room', id);
-          socket.disconnect();
         }
+        disconnectSync();
         roomStore.reset();
       };
     }
@@ -149,20 +168,20 @@ export default function RoomPage() {
 
   if (isLoading) {
     return (
-      <div className="h-full flex items-center justify-center bg-surface-950">
-        <Loader2 className="w-8 h-8 animate-spin text-brand-400" />
+      <div className="h-full flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="h-full flex items-center justify-center bg-surface-950">
+      <div className="h-full flex items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-red-400 mb-4">Room not found</p>
+          <p className="text-destructive mb-4">Room not found</p>
           <button
             onClick={() => router.push('/dashboard')}
-            className="text-brand-400 hover:text-brand-300"
+            className="text-primary hover:text-primary/80"
           >
             Go back
           </button>
@@ -172,27 +191,27 @@ export default function RoomPage() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-surface-950">
-      <div className="h-12 bg-surface-900 border-b border-surface-800 flex items-center px-4 gap-3">
-        <button onClick={() => router.push('/dashboard')} className="text-surface-400 hover:text-white">
+    <div className="h-full flex flex-col bg-background">
+      <div className="h-12 bg-background/80 backdrop-blur-xl border-b border-border flex items-center px-4 gap-3">
+        <button onClick={() => router.push('/dashboard')} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft size={18} />
         </button>
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-white font-medium truncate">{roomStore.name}</span>
-          <span className="text-xs bg-surface-800 text-surface-400 px-2 py-0.5 rounded capitalize">{roomStore.type}</span>
-          <span className="text-xs text-surface-500">#{roomStore.code}</span>
+          <span className="text-foreground font-medium truncate">{roomStore.name}</span>
+          <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded capitalize">{roomStore.type}</span>
+          <span className="text-xs text-muted-foreground/60">#{roomStore.code}</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span className="text-xs text-surface-400">{connected ? 'Synced' : 'Disconnected'}</span>
+          <div className={`w-2 h-2 rounded-full ${connected ? 'bg-success' : 'bg-destructive'}`} />
+          <span className="text-xs text-muted-foreground">{connected ? 'Synced' : 'Disconnected'}</span>
         </div>
-        <button onClick={handleCopyCode} className="text-surface-400 hover:text-white p-1.5">
+        <button onClick={handleCopyCode} className="text-muted-foreground hover:text-foreground p-1.5">
           <Copy size={16} />
         </button>
-        <button className="text-surface-400 hover:text-white p-1.5">
+        <button className="text-muted-foreground hover:text-foreground p-1.5">
           <Share2 size={16} />
         </button>
-        <button className="text-surface-400 hover:text-white p-1.5">
+        <button className="text-muted-foreground hover:text-foreground p-1.5">
           <UserPlus size={16} />
         </button>
       </div>
@@ -236,8 +255,8 @@ export default function RoomPage() {
           </div>
         </div>
 
-        <div className="w-80 bg-surface-900 border-l border-surface-800 flex flex-col">
-          <div className="flex border-b border-surface-800">
+        <div className="w-80 bg-card border-l border-border flex flex-col">
+          <div className="flex border-b border-border">
             {[
               { id: 'chat', icon: MessageCircle, label: 'Chat' },
               { id: 'participants', icon: Users, label: 'Participants' },
@@ -248,8 +267,8 @@ export default function RoomPage() {
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors ${
                   activeTab === tab.id
-                    ? 'text-brand-400 border-b-2 border-brand-400'
-                    : 'text-surface-400 hover:text-white'
+                    ? 'text-primary border-b-2 border-primary'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <tab.icon size={14} />
