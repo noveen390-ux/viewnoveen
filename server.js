@@ -11,7 +11,7 @@ const fs = require("fs");
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
-  maxHttpBufferSize: 1024 * 1024 * 1024,
+  maxHttpBufferSize: 100 * 1024 * 1024,
   cors: { origin: "*" },
   pingTimeout: 20000,
   pingInterval: 8000,
@@ -20,6 +20,18 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
+
+// Health check
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    uptime: process.uptime(),
+    rooms: Object.keys(rooms).length,
+    connections: io.engine?.clientsCount || 0,
+    memory: process.memoryUsage().rss,
+    timestamp: Date.now(),
+  });
+});
 const DATA_DIR = path.join(__dirname, "data");
 const ROOMS_FILE = path.join(DATA_DIR, "rooms.json");
 let rooms = {};
@@ -187,20 +199,21 @@ app.get("/player", (req, res) => {
   const enc = encodeURIComponent(url);
   const page = `<!DOCTYPE html><html><body style="margin:0;background:#000">
 <video id="v" src="/proxy?url=${enc}" controls autoplay style="width:100%;height:100vh"
-  oncanplay="parent.postMessage('vnsync-video-ready','*')"
-  onerror="parent.postMessage('vnsync-video-ready','*')"></video>
+  oncanplay="parent.postMessage('vnsync-video-ready',window.location.origin)"
+  onerror="parent.postMessage('vnsync-video-ready',window.location.origin)"></video>
 <script>
-var v=document.getElementById('v');
+var v=document.getElementById('v'),origin=window.location.origin;
 window.addEventListener('message',function(e){
+  if(e.origin!==origin)return;
   var d=typeof e.data==='string'?{type:e.data}:e.data;
   if(d.type==='vnsync-play'){v.play();}
   else if(d.type==='vnsync-pause'){v.pause();}
   else if(d.type==='vnsync-seek'){v.currentTime=d.time;}
 });
-v.addEventListener('play',function(){parent.postMessage({type:'vnsync-play',time:v.currentTime},'*');});
-v.addEventListener('pause',function(){parent.postMessage({type:'vnsync-pause',time:v.currentTime},'*');});
-v.addEventListener('seeked',function(){parent.postMessage({type:'vnsync-seeked',time:v.currentTime},'*');});
-v.addEventListener('timeupdate',function(){parent.postMessage({type:'vnsync-timeupdate',time:v.currentTime},'*');});
+v.addEventListener('play',function(){parent.postMessage({type:'vnsync-play',time:v.currentTime},origin);});
+v.addEventListener('pause',function(){parent.postMessage({type:'vnsync-pause',time:v.currentTime},origin);});
+v.addEventListener('seeked',function(){parent.postMessage({type:'vnsync-seeked',time:v.currentTime},origin);});
+v.addEventListener('timeupdate',function(){parent.postMessage({type:'vnsync-timeupdate',time:v.currentTime},origin);});
 </script>
 </body></html>`;
   res.send(page);
@@ -374,7 +387,7 @@ app.post("/upload", (req, res) => {
     return res.status(507).json({ error: "Server storage limit reached" });
   }
 
-  const safeName = room + "_" + Date.now() + ext;
+  const safeName = room + "_" + crypto.randomUUID().split("-")[0] + ext;
   const filePath = path.join(UPLOADS_DIR, safeName);
   const ws = fs.createWriteStream(filePath);
   let receivedBytes = 0;
@@ -523,8 +536,23 @@ function deleteRoomUpload(code) {
   }
 }
 
+// Simple in-memory rate limiter
+const rateLimitMap = {};
+function checkRateLimit(key, maxPerMinute) {
+  const now = Date.now();
+  if (!rateLimitMap[key]) rateLimitMap[key] = [];
+  const recent = rateLimitMap[key].filter(t => now - t < 60000);
+  if (recent.length >= maxPerMinute) return false;
+  recent.push(now);
+  rateLimitMap[key] = recent;
+  return true;
+}
+
 io.on("connection", (socket) => {
   socket.on("create", (cb) => {
+    if (!checkRateLimit("create:" + socket.handshake.address, 10)) {
+      return cb?.({ err: "Too many rooms created. Please slow down." });
+    }
     let code;
     do {
       code = crypto.randomBytes(3).toString("hex").toUpperCase();
@@ -643,6 +671,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("proxy-resolve", async (url, opts, cb) => {
+    const room = rooms[socket.data.room];
+    if (!room) return cb({ error: "Not in a room" });
     if (!url) return cb({ error: "Missing url" });
     if (typeof opts === "function") {
       cb = opts; opts = {};
@@ -836,6 +866,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("chat", ({ n, m }) => {
+    if (!checkRateLimit("chat:" + socket.id, 30)) return;
     const room = rooms[socket.data.room];
     if (room) io.to(socket.data.room).emit("chat", { n, m, id: ++_globalChatId, ts: Date.now() });
   });
@@ -1046,6 +1077,24 @@ io.on("connection", (socket) => {
 process.on("unhandledRejection", (err) => {
   console.error("Unhandled rejection:", err?.message || err);
 });
+
+// Graceful shutdown
+function shutdown(signal) {
+  console.log(`\n[${signal}] Shutting down gracefully...`);
+  io.close();
+  server.close(() => {
+    doSave();
+    console.log("[shutdown] Server closed");
+    process.exit(0);
+  });
+  setTimeout(() => {
+    console.error("[shutdown] Forced exit after 5s timeout");
+    doSave();
+    process.exit(1);
+  }, 5000);
+}
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 server.listen(PORT, () => {
   console.log(`ViewNoveen running on http://0.0.0.0:${PORT}`);

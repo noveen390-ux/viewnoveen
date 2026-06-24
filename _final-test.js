@@ -90,6 +90,7 @@ function check(label, ok, detail) {
     const sb = document.getElementById('seekbar');
     sb.value = 500;
     sb.dispatchEvent(new Event('input'));
+    sb.dispatchEvent(new Event('change'));
   });
   await sleep(2500);
   hv = await host.evaluate(() => {
