@@ -285,14 +285,13 @@ socket.on("proxy-meta", (meta) => {
 
 socket.on("proxy-flush", () => {
   if (playerType !== "proxy") return;
-  if (ms && ms.readyState === "open" && sb) {
+  if (ms && ms.readyState === "open") {
     try {
-      sb.abort();
-      if (ms.sourceBuffers.length > 0) {
-        while (ms.sourceBuffers.length > 0) {
-          ms.removeSourceBuffer(ms.sourceBuffers[0]);
-        }
+      if (sb) sb.abort();
+      while (ms.sourceBuffers.length > 0) {
+        ms.removeSourceBuffer(ms.sourceBuffers[0]);
       }
+      ms.endOfStream();
     } catch (e) {}
   }
   ms = null; sb = null; chunkQ = []; appending = false;

@@ -372,7 +372,7 @@ app.post("/upload", (req, res) => {
   // Rate limit per room
   const roomUp = roomUploads[room];
   if (roomUp) {
-    const uploads = Object.keys(roomUploads).filter(k => k.startsWith(room + "_")).length;
+    const uploads = roomUp.length;
     if (uploads >= MAX_UPLOADS_PER_ROOM) {
       return res.status(429).json({ error: "Too many uploads for this room" });
     }
@@ -391,13 +391,16 @@ app.post("/upload", (req, res) => {
   const filePath = path.join(UPLOADS_DIR, safeName);
   const ws = fs.createWriteStream(filePath);
   let receivedBytes = 0;
+  let responded = false;
 
   roomUploads[room] = roomUploads[room] || [];
   roomUploads[room].push({ file: safeName, uploadedAt: Date.now() });
 
   req.on("data", (chunk) => {
+    if (responded) return;
     receivedBytes += chunk.length;
     if (receivedBytes > UPLOAD_SIZE_LIMIT) {
+      responded = true;
       ws.destroy();
       try {
         fs.unlinkSync(filePath);
@@ -407,11 +410,15 @@ app.post("/upload", (req, res) => {
     ws.write(chunk);
   });
   req.on("end", () => {
+    if (responded) return;
+    responded = true;
     ws.end();
     _totalUploadedBytes += receivedBytes;
     res.json({ url: "/video/" + safeName });
   });
   req.on("error", (err) => {
+    if (responded) return;
+    responded = true;
     ws.destroy();
     try {
       fs.unlinkSync(filePath);
@@ -670,10 +677,18 @@ io.on("connection", (socket) => {
     }
   });
 
+  const _proxyRateLimit = {};
   socket.on("proxy-resolve", async (url, opts, cb) => {
     const room = rooms[socket.data.room];
     if (!room) return cb({ error: "Not in a room" });
     if (!url) return cb({ error: "Missing url" });
+    if (room.host !== socket.id) return cb({ error: "Only the host can resolve proxy URLs" });
+    const _prlNow = Date.now();
+    const _prlWindow = _proxyRateLimit[socket.id] || [];
+    const _prlClean = _prlWindow.filter(ts => ts > _prlNow - 10000);
+    if (_prlClean.length >= 5) return cb({ error: "Rate limited" });
+    _prlClean.push(_prlNow);
+    _proxyRateLimit[socket.id] = _prlClean;
     if (typeof opts === "function") {
       cb = opts; opts = {};
     }

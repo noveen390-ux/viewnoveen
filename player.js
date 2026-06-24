@@ -433,6 +433,7 @@ function togglePlay() {
       var now = Date.now();
       if (now - _playEmitLast < 300) return;
       _playEmitLast = now;
+      _pendingHostPlay = true;
       socket.emit("play", _compensateViewerTime(video.currentTime, null, false));
     }
     video.play().catch(function() {});
@@ -523,6 +524,7 @@ function onSeek() {
 })();
 
 video.addEventListener("play", () => {
+  _pendingHostPlay = false;
   playBtn.innerHTML = "\u25B6\uFE0E";
   if (_autoResume) {
     _autoResume = false; return;
