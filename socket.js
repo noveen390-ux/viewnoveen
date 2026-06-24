@@ -80,7 +80,6 @@ socket.on("reconnect", () => {
 // ==================== SOCKET EVENTS ====================
 socket.on("meta", (m) => {
   videoMeta = m;
-  pendingState = null;
   scheduleOverlayTimeout();
   destroyYTPlayer();
   if (ytInterval) {
@@ -315,7 +314,8 @@ socket.on("proxy-error", (msg) => {
 });
 
 socket.on("play", ({ t, savedAt, _seq }) => {
-  if (!playerType || bufMgr.isRebuffering) return;
+  if (!playerType) { pendingState = { t, p: true, _seq }; return; }
+  if (bufMgr.isRebuffering) return;
   if (isHost && !_inFullscreenTransition) return;
   if (_seq !== undefined) {
     if (_seq < _lastAppliedSeq) return;
@@ -334,7 +334,12 @@ socket.on("play", ({ t, savedAt, _seq }) => {
 });
 
 socket.on("pause", ({ t, savedAt, _seq }) => {
-  if (!playerType || bufMgr.isRebuffering || (isHost && !_inFullscreenTransition)) return;
+  if (!playerType) {
+    updateClockOffset(savedAt);
+    pendingState = { t: _compensateViewerTime(t, savedAt, true), p: false, _seq };
+    return;
+  }
+  if (bufMgr.isRebuffering || (isHost && !_inFullscreenTransition)) return;
   if (_seq !== undefined) {
     if (_seq < _lastAppliedSeq) return;
     _lastAppliedSeq = Math.max(_lastAppliedSeq, _seq);
@@ -357,7 +362,12 @@ socket.on("pause", ({ t, savedAt, _seq }) => {
 });
 
 socket.on("seek", ({ t, savedAt, _seq }) => {
-  if (!playerType || (isHost && !_inFullscreenTransition)) return;
+  if (!playerType) {
+    updateClockOffset(savedAt);
+    pendingState = { t: _compensateViewerTime(t, savedAt, true), p: false, _seq };
+    return;
+  }
+  if (isHost && !_inFullscreenTransition) return;
   if (_seq !== undefined) {
     if (_seq < _lastAppliedSeq) return;
     _lastAppliedSeq = Math.max(_lastAppliedSeq, _seq);
@@ -381,7 +391,12 @@ socket.on("seek", ({ t, savedAt, _seq }) => {
 
 socket.on("sync-state", ({ t, p, _seq, savedAt }) => {
   console.log("VIEWER EVENT: sync-state", {t, p, _seq, savedAt, videoCT: video.currentTime, videoPaused: video.paused, videoEnded: video.ended});
-  if (isHost || !playerType) return;
+  if (isHost) return;
+  if (!playerType) {
+    updateClockOffset(savedAt);
+    pendingState = { t: _compensateViewerTime(t, savedAt, !p), p, _seq };
+    return;
+  }
   if (bufMgr.isRebuffering) return;
   if (_seq !== undefined) {
     if (_seq < _lastAppliedSeq) return;
